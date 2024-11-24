@@ -10,6 +10,7 @@ from tensorflow.keras.layers import Dense, Flatten, Dropout
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 import matplotlib.pyplot as plt
 
 # Step 1: Load and Preprocess MRI Data
@@ -88,12 +89,42 @@ batch_size = 32
 epochs = 10
 train_generator = datagen.flow(X_train, y_train, batch_size=batch_size)
 
+callbacks = [
+    EarlyStopping (
+        monitor ='val_loss', 
+        patience = 3, #subject to change
+        restore_best_weights = True
+    ),
+    ModelCheckpoint(
+        filepath = 'best_model.filetype', #subject to change
+        monitor = 'val_loss',
+        save_best_only = True
+    ),
+    ReduceLROnPlateau(
+        monitor = 'val_loss',
+        factor = 0.1, #subject to change
+        patience = 3, #subject to change
+        min_lr = 1e-5 #subject to change
+    )
+]
+
+callbacks.append(
+    TensorBoard(
+        log_dir='./logs',
+        histogram_freq=1,
+        write_graph=True,
+        write_images=True
+    )
+)
+#tensorboard --logdir=./logs - for terminal command to visualize progress
+
 history = model.fit(
     train_generator,
     validation_data=(X_val, y_val),
     epochs=epochs,
     batch_size=batch_size,
-    verbose=1
+    verbose=1,
+    callbacks = callbacks
 )
 
 # Step 6: Evaluate and Save Model
