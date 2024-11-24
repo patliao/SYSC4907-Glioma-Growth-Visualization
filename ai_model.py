@@ -12,13 +12,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 import matplotlib.pyplot as plt
+import nibabel as nib
 
 # Step 1: Load and Preprocess MRI Data
 def load_and_preprocess_data(image_dir, target_size=(224, 224)):
     """
     Loads MRI images from a directory and preprocesses them for training.
     Args:
-        image_dir (str): Path to the directory containing MRI images organized by label folders.
+        image_dir (str): Path to the directory containing MRI images.
         target_size (tuple): Target size to resize images to (default: 224x224).
     Returns:
         images (numpy.ndarray): Preprocessed image data.
@@ -26,23 +27,47 @@ def load_and_preprocess_data(image_dir, target_size=(224, 224)):
     """
     images = []
     labels = []
+
+    # Iterate through all files in the image directory (no subdirectories assumed)
+    for img_file in os.listdir(image_dir):
+        img_path = os.path.join(image_dir, img_file)
+        print("-------------------------------")
+        print(f"Found file: {img_file}")  # Debugging line
+        
+        # Process only .nii files
+        if img_file.endswith(".nii"):
+            print(f"Loading MRI image: {img_path}")  # Debugging line
+            
+            # Load the .nii file using nibabel
+            img = nib.load(img_path).get_fdata()  # Load the image data
+
+            if img.ndim ==3:
+                print(f"Image shape: {img.shape}")
+            # Resize the entire 3D image (height, width, depth)
+            # TensorFlow's resize expects 4D input (batch_size, height, width, channels)
+            # So we need to add a batch dimension and handle each slice/channel
+            img_resized = tf.image.resize(img, target_size)
+            img_resized = np.expand_dims(img_resized, axis=-1)  # Add channel dimension if needed
+
+            # Visualize one of the resized slices (for example, the middle slice in the depth axis)
+            mid_slice = img_resized.shape[2] // 2  # Middle slice
+            plt.imshow(img_resized[:, :, mid_slice, 0], cmap='gray')  # Display slice
+            plt.title(f"Loaded MRI Image Slice: {img_file}")
+            plt.axis('off')  # Hide axis
+            plt.show()
+
+            # Append the resized image and label
+            images.append(img_resized)  # Use the resized volume
+            labels.append(image_dir.split('/')[-1])  # Label based on parent folder name
+        
     
-    for label_folder in os.listdir(image_dir):
-        label_path = os.path.join(image_dir, label_folder)
-        if os.path.isdir(label_path):
-            for img_file in os.listdir(label_path):
-                img_path = os.path.join(label_path, img_file)
-                img = tf.keras.preprocessing.image.load_img(img_path, target_size=target_size, color_mode='rgb')
-                img_array = tf.keras.preprocessing.image.img_to_array(img)
-                images.append(img_array)
-                labels.append(label_folder)
-    
-    images = np.array(images) / 255.0  # Normalize pixel values to [0, 1]
+    # Normalize pixel values to [0, 1]
+    images = np.array(images) / 255.0
     labels = np.array(labels)
     return images, labels
 
 # Step 2: Prepare Data
-image_dir = "path/to/processed/mri/images"  # Replace with the actual path
+image_dir = "./TCGA-HT-8111"  # Replace with the actual path
 images, labels = load_and_preprocess_data(image_dir)
 
 # Encode labels (e.g., 'low_grade', 'high_grade')
@@ -96,7 +121,7 @@ callbacks = [
         restore_best_weights = True
     ),
     ModelCheckpoint(
-        filepath = 'best_model.filetype', #subject to change
+        filepath = 'best_model.nii', #subject to change
         monitor = 'val_loss',
         save_best_only = True
     ),
