@@ -1,9 +1,30 @@
-import nibabel as nib #hiiiiiiii
+import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons
 from skimage.transform import resize
 from scipy.ndimage import gaussian_filter
+from tkinter.filedialog import askopenfilename
+from tkinter import Tk
+
+def get_file_paths():
+    file_keys = ['flair', 'glistrboost', 't1', 't1_gd', 't2']
+    file_paths = {}
+
+    print("Please select the MRI files for the following sequences:")
+    root = Tk()
+    root.withdraw()  # Hide the main Tkinter window
+
+    for key in file_keys:
+        print(f"Select the {key.upper()} file:")
+        file_path = askopenfilename(title=f"Select the {key.upper()} file")
+        if not file_path:
+            print(f"File selection for {key.upper()} was canceled. Exiting.")
+            exit()
+        file_paths[key] = file_path
+
+    root.destroy()
+    return file_paths
 
 # Step 1: Load MRI Data
 def load_mri_data(file_paths):
@@ -112,7 +133,6 @@ def interactive_growth_visualization(mri_data):
         nonlocal overlay_on
         overlay_on = not overlay_on
         update(None)  # Re-render the figure with the updated overlay status
-
     toggle_button.on_clicked(toggle_overlay)
 
     # Function to update the scan type when radio button is clicked
@@ -120,7 +140,6 @@ def interactive_growth_visualization(mri_data):
         nonlocal current_scan
         current_scan = label.lower()  # Update the scan to the selected one
         update(None)  # Re-render the figure with the new scan type
-
     radio_button.on_clicked(update_scan_type)
 
     # Update function for the sliders and toggle
@@ -175,20 +194,12 @@ def interactive_growth_visualization(mri_data):
     ax_sagittal.set_facecolor('black')
     ax_coronal.set_facecolor('black')
     ax_axial.set_facecolor('black')
-
     plt.show()
 
-# Assuming you have a dictionary file_paths of your MRI scan paths
-file_paths = {
-        'flair': 'C:/Users/firee/Downloads/PKG - BraTS-TCGA-LGG/BraTS-TCGA-LGG/Pre-operative_TCGA_LGG_NIfTI_and_Segmentations/TCGA-HT-8114/TCGA-HT-8114_1998.10.30_flair.nii',
-        'glistrboost': 'C:/Users/firee/Downloads/PKG - BraTS-TCGA-LGG/BraTS-TCGA-LGG/Pre-operative_TCGA_LGG_NIfTI_and_Segmentations/TCGA-HT-8114/TCGA-HT-8114_1998.10.30_GlistrBoost.nii',
-        't1': 'C:/Users/firee/Downloads/PKG - BraTS-TCGA-LGG/BraTS-TCGA-LGG/Pre-operative_TCGA_LGG_NIfTI_and_Segmentations/TCGA-HT-8114/TCGA-HT-8114_1998.10.30_t1.nii',
-        't1_gd': 'C:/Users/firee/Downloads/PKG - BraTS-TCGA-LGG/BraTS-TCGA-LGG/Pre-operative_TCGA_LGG_NIfTI_and_Segmentations/TCGA-HT-8114/TCGA-HT-8114_1998.10.30_t1Gd.nii',
-        't2': 'C:/Users/firee/Downloads/PKG - BraTS-TCGA-LGG/BraTS-TCGA-LGG/Pre-operative_TCGA_LGG_NIfTI_and_Segmentations/TCGA-HT-8114/TCGA-HT-8114_1998.10.30_t2.nii'
-}
+if __name__ == "__main__":
+    file_paths = get_file_paths() # Get file paths from the user
+   
+    mri_data = load_mri_data(file_paths) # Load the MRI data
 
-# Load the MRI data
-mri_data = load_mri_data(file_paths)
-
-# Initialize the interactive visualization
-interactive_growth_visualization(mri_data)
+    # Initialize the interactive visualization
+    interactive_growth_visualization(mri_data)
