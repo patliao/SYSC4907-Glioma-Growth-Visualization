@@ -43,22 +43,27 @@ def load_and_preprocess_data(image_dir, target_size=(224, 224)):
 
             if img.ndim ==3:
                 print(f"Image shape: {img.shape}")
-            # Resize the entire 3D image (height, width, depth)
-            # TensorFlow's resize expects 4D input (batch_size, height, width, channels)
-            # So we need to add a batch dimension and handle each slice/channel
-            img_resized = tf.image.resize(img, target_size)
-            img_resized = np.expand_dims(img_resized, axis=-1)  # Add channel dimension if needed
+                # Resize the entire 3D image (height, width, depth)
+                # TensorFlow's resize expects 4D input (batch_size, height, width, channels)
+                # So we need to add a batch dimension and handle each slice/channel
+                img_resized = tf.image.resize(img, target_size)
+                img_resized = np.expand_dims(img_resized, axis=-1)  # Add channel dimension if needed
 
-            # Visualize one of the resized slices (for example, the middle slice in the depth axis)
-            mid_slice = img_resized.shape[2] // 2  # Middle slice
-            plt.imshow(img_resized[:, :, mid_slice, 0], cmap='gray')  # Display slice
-            plt.title(f"Loaded MRI Image Slice: {img_file}")
-            plt.axis('off')  # Hide axis
-            plt.show()
-
-            # Append the resized image and label
-            images.append(img_resized)  # Use the resized volume
-            labels.append(image_dir.split('/')[-1])  # Label based on parent folder name
+                # Visualize one of the resized slices (for example, the middle slice in the depth axis)
+                mid_slice = img_resized.shape[2] // 2  # Middle slice
+                plt.imshow(img_resized[:, :, mid_slice, 0], cmap='gray')  # Display slice
+                plt.title(f"Loaded MRI Image Slice: {img_file}")
+                plt.axis('off')  # Hide axis
+                plt.show()
+                
+                    # Flatten the depth (last dimension) into separate 2D slices
+                for i in range(img_resized.shape[2]):  # Iterate over the depth dimension
+                    img_slice = img_resized[:, :, i, 0]  # Get the i-th slice (height, width)
+                    images.append(img_slice)  # Append the slice
+                    labels.append(image_dir.split('/')[-1])  # Use the folder name as the label
+                    # Append the resized image and label
+                    images.append(img_resized)  # Use the resized volume
+                    labels.append(image_dir.split('/')[-1])  # Label based on parent folder name
         
     
     # Normalize pixel values to [0, 1]
@@ -69,6 +74,8 @@ def load_and_preprocess_data(image_dir, target_size=(224, 224)):
 # Step 2: Prepare Data
 image_dir = "./TCGA-HT-8111"  # Replace with the actual path
 images, labels = load_and_preprocess_data(image_dir)
+
+print(images.shape) #debugging for image shape (should match 4 dimensions)
 
 # Encode labels (e.g., 'low_grade', 'high_grade')
 label_mapping = {label: idx for idx, label in enumerate(np.unique(labels))}
