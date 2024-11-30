@@ -13,7 +13,7 @@ import argparse
 SPATIAL_RESOLUTION = 1.0 # mm
 DIFFUSION_RATE = 0.5 # mm/day
 REACTION_RATE = 0.01 # per day
-NUM_STEPS = 500
+NUM_STEPS = 500 # number of steps in time in the model
 FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
 def convert_diffusion_coefficient(diffusion_rate_cm2_per_day):
@@ -80,18 +80,10 @@ def simulate_growth(initial_mask, diffusion_rate, reaction_rate, time_steps, bra
         # Apply Gaussian filter for diffusion and add reaction (growth)
         mask = gaussian_filter(mask, sigma=diffusion_rate)
         growth = reaction_rate * mask * (1 - mask)
-        mask = mask + (growth * brain_mask_resized)
+        mask = mask + (growth * brain_mask_resized) # ensure the growth is kept within the brain region
         mask = np.clip(mask, 0, 1)  # Keep values in range
 
     return mask > 0.5  # Threshold to keep mask as binary
-
-def create_brain_mask(mri_image):
-    brain_mask = mri_image > 0
-    return brain_mask
-
-def resize_mask_to_slice(mask, slice_shape):
-    resized_mask = resize(mask, slice_shape, order=0, preserve_range=True, anti_aliasing=False)
-    return resized_mask.astype(bool)
 
 # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
 def interactive_growth_visualization(mri_data):
@@ -205,6 +197,11 @@ def interactive_growth_visualization(mri_data):
     def update(val):
         slice_idx = int(slice_slider.val)
         time_step = int(time_slider.val)
+
+        def create_brain_mask(mri_image):
+            brain_mask = mri_image > 0
+            return brain_mask
+
         brain_mask_sagittal = create_brain_mask(mri_data['flair'][slice_idx, :, :])
         brain_mask_coronal = create_brain_mask(mri_data['flair'][:, slice_idx, :])
         brain_mask_axial = create_brain_mask(mri_data['flair'][:, :, slice_idx])
