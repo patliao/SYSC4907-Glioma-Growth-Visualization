@@ -5,14 +5,15 @@ from matplotlib.widgets import Slider, CheckButtons, RadioButtons
 from skimage.transform import resize
 from scipy.ndimage import gaussian_filter
 from tkinter.filedialog import askopenfilename
+from skimage.filters import threshold_otsu
 from tkinter import Tk
 import os
 import argparse
 
-SPATIAL_RESOLUATION = 1.0 # mm
-DIFFUSION_RATE = 1.0 # mm or 0.1 cm2/day
+SPATIAL_RESOLUTION = 1.0 # mm
+DIFFUSION_RATE = 1.0 # mm/day or 0.1 cm2/day
 REACTION_RATE = 0.01 # per day
-NUM_STEPS = 50
+NUM_STEPS = 500
 FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
 def convert_diffusion_coefficient(diffusion_rate_cm2_per_day):
@@ -73,14 +74,12 @@ def resize_mask_to_slice(tumor_mask, slice_shape):
 
 # Step 3: Simulate Tumor Growth using Reaction-Diffusion
 def simulate_growth(initial_mask, diffusion_rate, reaction_rate, time_steps):
-    time_step = (SPATIAL_RESOLUATION ** 2) / (2 * 3 * diffusion_rate)
-    total_duration = time_step * time_steps
-    print(f"Total simulated time: {total_duration:.2f} days")
-
     mask = initial_mask.copy().astype(float)
     for _ in range(time_steps):
         # Apply Gaussian filter for diffusion and add reaction (growth)
-        mask = gaussian_filter(mask, sigma=diffusion_rate) + reaction_rate * mask * (1 - mask)
+        mask = gaussian_filter(mask, sigma=diffusion_rate)
+        growth = reaction_rate * mask * (1 - mask)
+        mask = mask + growth
         mask = np.clip(mask, 0, 1)  # Keep values in range
 
     return mask > 0.5  # Threshold to keep mask as binary
@@ -143,13 +142,23 @@ def interactive_growth_visualization(mri_data):
     scan_img_coronal.set_data(scan_rgb_coronal)
     scan_img_axial.set_data(scan_rgb_axial)
 
-    # Slider for controlling slice index
     ax_slice_slider = plt.axes([0.25, 0.2, 0.65, 0.03])
-    slice_slider = Slider(ax_slice_slider, 'Slice Index', 0, mri_data[current_scan].shape[0] - 1, valinit=sagittal_slice_idx, valstep=1)
+    min_slices = get_max_slice_value(mri_data, current_scan)
+    slice_slider = Slider(ax_slice_slider, 'Slice Index', 0, min_slices - 1, valinit=sagittal_slice_idx, valstep=1)
 
     # Slider for controlling time step
     ax_time_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
     time_slider = Slider(ax_time_slider, 'Time Step', 0, NUM_STEPS, valinit=0, valstep=1)
+    
+    def update_time_step(val):
+        calculated_time = calculate_time_in_days(val)
+        time_slider.valtext.set_text(f"{calculated_time:.2f} days")
+
+    def calculate_time_in_days(step):
+        time_step = (SPATIAL_RESOLUTION ** 2) / (2 * 3 * DIFFUSION_RATE)
+        return step * time_step 
+
+    time_slider.on_changed(update_time_step)
 
     # Checkbox for toggling red overlay
     ax_toggle = plt.axes([0.05, 0.5, 0.15, 0.15])
@@ -236,6 +245,15 @@ def interactive_growth_visualization(mri_data):
     ax_coronal.set_facecolor('black')
     ax_axial.set_facecolor('black')
     plt.show()
+
+def get_max_slice_value(mri_data, current_scan):
+    mri_shape = mri_data[current_scan].shape
+    num_slices_sagittal = mri_shape[0]
+    num_slices_coronal = mri_shape[1]
+    num_slices_axial = mri_shape[2]
+
+    min_slices = min(num_slices_sagittal, num_slices_coronal, num_slices_axial)
+    return min_slices
 
 def handle_args():
     parser = argparse.ArgumentParser(description="Choose how to load files.")
