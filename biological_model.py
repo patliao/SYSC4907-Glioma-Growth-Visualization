@@ -11,7 +11,7 @@ import os
 import argparse
 
 SPATIAL_RESOLUTION = 1.0 # mm
-DIFFUSION_RATE = 1.0 # mm/day or 0.1 cm2/day
+DIFFUSION_RATE = 0.5 # mm/day
 REACTION_RATE = 0.01 # per day
 NUM_STEPS = 500
 FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
