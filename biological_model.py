@@ -73,16 +73,25 @@ def resize_mask_to_slice(tumor_mask, slice_shape):
     return resized_mask.astype(bool)
 
 # Step 3: Simulate Tumor Growth using Reaction-Diffusion
-def simulate_growth(initial_mask, diffusion_rate, reaction_rate, time_steps):
+def simulate_growth(initial_mask, diffusion_rate, reaction_rate, time_steps, brain_mask):
     mask = initial_mask.copy().astype(float)
+    brain_mask_resized = resize_mask_to_slice(brain_mask, mask.shape)
     for _ in range(time_steps):
         # Apply Gaussian filter for diffusion and add reaction (growth)
         mask = gaussian_filter(mask, sigma=diffusion_rate)
         growth = reaction_rate * mask * (1 - mask)
-        mask = mask + growth
+        mask = mask + (growth * brain_mask_resized)
         mask = np.clip(mask, 0, 1)  # Keep values in range
 
     return mask > 0.5  # Threshold to keep mask as binary
+
+def create_brain_mask(mri_image):
+    brain_mask = mri_image > 0
+    return brain_mask
+
+def resize_mask_to_slice(mask, slice_shape):
+    resized_mask = resize(mask, slice_shape, order=0, preserve_range=True, anti_aliasing=False)
+    return resized_mask.astype(bool)
 
 # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
 def interactive_growth_visualization(mri_data):
@@ -166,7 +175,7 @@ def interactive_growth_visualization(mri_data):
 
     # RadioButtons for selecting scan type (FLAIR, T1, T1_Gd, etc.)
     ax_radio = plt.axes([0.05, 0.8, 0.15, 0.15])
-    radio_button = RadioButtons(ax_radio, ['FLAIR', 'T1', 'T1_Gd', 'T2'])
+    radio_button = RadioButtons(ax_radio, ['FLAIR', 'T1', 'T1 GD', 'T2'])
 
     # Hide the border around the checkbox
     for label in toggle_button.labels:
@@ -196,6 +205,14 @@ def interactive_growth_visualization(mri_data):
     def update(val):
         slice_idx = int(slice_slider.val)
         time_step = int(time_slider.val)
+        brain_mask_sagittal = create_brain_mask(mri_data['flair'][slice_idx, :, :])
+        brain_mask_coronal = create_brain_mask(mri_data['flair'][:, slice_idx, :])
+        brain_mask_axial = create_brain_mask(mri_data['flair'][:, :, slice_idx])
+
+        # Resize the brain mask to the shape of the current slice
+        brain_mask_resized_sagittal = resize_mask_to_slice(brain_mask_sagittal, mri_data[current_scan].shape[1:])
+        brain_mask_resized_coronal = resize_mask_to_slice(brain_mask_coronal, mri_data[current_scan].shape[1:])
+        brain_mask_resized_axial = resize_mask_to_slice(brain_mask_axial, mri_data[current_scan].shape[:2])
 
         # Update the selected scan slice for both sagittal and coronal
         scan_slice_sagittal = mri_data[current_scan][slice_idx, :, :].T
@@ -212,9 +229,9 @@ def interactive_growth_visualization(mri_data):
         tumor_mask_resized_sagittal = resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
         tumor_mask_resized_coronal = resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
         tumor_mask_resized_axial = resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
-        grown_tumor_mask_sagittal = simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step)
-        grown_tumor_mask_coronal = simulate_growth(tumor_mask_resized_coronal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step)
-        grown_tumor_mask_axial = simulate_growth(tumor_mask_resized_axial, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step)
+        grown_tumor_mask_sagittal = simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step, brain_mask=brain_mask_sagittal)
+        grown_tumor_mask_coronal = simulate_growth(tumor_mask_resized_coronal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step, brain_mask=brain_mask_coronal)
+        grown_tumor_mask_axial = simulate_growth(tumor_mask_resized_axial, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step, brain_mask=brain_mask_axial)
 
         # Apply tumor overlays
         if overlay_on:
