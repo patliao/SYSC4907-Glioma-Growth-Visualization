@@ -6,24 +6,60 @@ from skimage.transform import resize
 from scipy.ndimage import gaussian_filter
 from tkinter.filedialog import askopenfilename
 from tkinter import Tk
+import os
+import argparse
+
+SPATIAL_RESOLUATION = 1.0 # mm
+DIFFUSION_RATE = 1.0 # mm or 0.1 cm2/day
+REACTION_RATE = 0.01 # per day
+NUM_STEPS = 50
+FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
+
+def convert_diffusion_coefficient(diffusion_rate_cm2_per_day):
+    cm2_to_mm2 = 100
+    day_to_seconds = 86400
+
+    diffusion_rate_mm2_per_s = diffusion_rate_cm2_per_day * cm2_to_mm2 / day_to_seconds
+
+    return diffusion_rate_mm2_per_s
 
 def get_file_paths():
-    file_keys = ['flair', 'glistrboost', 't1', 't1_gd', 't2']
     file_paths = {}
 
     print("Please select the MRI files for the following sequences:")
     root = Tk()
     root.withdraw()  # Hide the main Tkinter window
 
-    for key in file_keys:
+    for key in FILE_KEYS:
         print(f"Select the {key.upper()} file:")
-        file_path = askopenfilename(title=f"Select the {key.upper()} file")
-        if not file_path:
-            print(f"File selection for {key.upper()} was canceled. Exiting.")
-            exit()
+        file_path = get_selected_file(key)
         file_paths[key] = file_path
 
     root.destroy()
+    return file_paths
+
+def get_selected_file(key):
+    file_path = askopenfilename(title=f"Select the {key.upper()} file")
+    if not file_path:
+        print(f"File selection for {key.upper()} was canceled. Exiting.")
+        exit()
+    return file_path
+
+def auto_load_files():
+    file_paths = {}
+    current_directory = os.getcwd()
+    for root, dirs, files in os.walk(current_directory):
+        for file_name in files:
+            for file_type in FILE_KEYS:
+                if file_type in file_name.lower():
+                    file_paths[file_type] = os.path.join(root, file_name)
+
+    for key in FILE_KEYS:
+        if key not in file_paths:
+            print(f"WARNING: {key} FILE NOT FOUND. PLEASE SELECT FROM FILES.")
+            file_path = get_selected_file()
+            file_paths[key] = file_path
+
     return file_paths
 
 # Step 1: Load MRI Data
@@ -37,11 +73,16 @@ def resize_mask_to_slice(tumor_mask, slice_shape):
 
 # Step 3: Simulate Tumor Growth using Reaction-Diffusion
 def simulate_growth(initial_mask, diffusion_rate, reaction_rate, time_steps):
+    time_step = (SPATIAL_RESOLUATION ** 2) / (2 * 3 * diffusion_rate)
+    total_duration = time_step * time_steps
+    print(f"Total simulated time: {total_duration:.2f} days")
+
     mask = initial_mask.copy().astype(float)
     for _ in range(time_steps):
         # Apply Gaussian filter for diffusion and add reaction (growth)
         mask = gaussian_filter(mask, sigma=diffusion_rate) + reaction_rate * mask * (1 - mask)
         mask = np.clip(mask, 0, 1)  # Keep values in range
+
     return mask > 0.5  # Threshold to keep mask as binary
 
 # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
@@ -108,7 +149,7 @@ def interactive_growth_visualization(mri_data):
 
     # Slider for controlling time step
     ax_time_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
-    time_slider = Slider(ax_time_slider, 'Time Step', 0, 50, valinit=0, valstep=1)
+    time_slider = Slider(ax_time_slider, 'Time Step', 0, NUM_STEPS, valinit=0, valstep=1)
 
     # Checkbox for toggling red overlay
     ax_toggle = plt.axes([0.05, 0.5, 0.15, 0.15])
@@ -162,9 +203,9 @@ def interactive_growth_visualization(mri_data):
         tumor_mask_resized_sagittal = resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
         tumor_mask_resized_coronal = resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
         tumor_mask_resized_axial = resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
-        grown_tumor_mask_sagittal = simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=0.5, reaction_rate=0.1, time_steps=time_step)
-        grown_tumor_mask_coronal = simulate_growth(tumor_mask_resized_coronal, diffusion_rate=0.5, reaction_rate=0.1, time_steps=time_step)
-        grown_tumor_mask_axial = simulate_growth(tumor_mask_resized_axial, diffusion_rate=0.5, reaction_rate=0.1, time_steps=time_step)
+        grown_tumor_mask_sagittal = simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step)
+        grown_tumor_mask_coronal = simulate_growth(tumor_mask_resized_coronal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step)
+        grown_tumor_mask_axial = simulate_growth(tumor_mask_resized_axial, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step)
 
         # Apply tumor overlays
         if overlay_on:
@@ -196,8 +237,26 @@ def interactive_growth_visualization(mri_data):
     ax_axial.set_facecolor('black')
     plt.show()
 
+def handle_args():
+    parser = argparse.ArgumentParser(description="Choose how to load files.")
+    parser.add_argument(
+        '-a',
+        '--auto',
+        action='store_true',
+        help="Automatically load files by searching the current directory and subdirectories."
+    )
+    args = parser.parse_args()
+    return args
+
 if __name__ == "__main__":
-    file_paths = get_file_paths() # Get file paths from the user
+    args = handle_args()
+
+    if args.auto:
+        print("Generating model with auto-selected files...")
+        file_paths = auto_load_files()
+    else:
+        file_paths = get_file_paths()
+
    
     mri_data = load_mri_data(file_paths) # Load the MRI data
 
