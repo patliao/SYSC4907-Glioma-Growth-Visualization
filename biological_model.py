@@ -16,14 +16,6 @@ REACTION_RATE = 0.01 # per day
 NUM_STEPS = 500 # number of steps in time in the model
 FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
-def convert_diffusion_coefficient(diffusion_rate_cm2_per_day):
-    cm2_to_mm2 = 100
-    day_to_seconds = 86400
-
-    diffusion_rate_mm2_per_s = diffusion_rate_cm2_per_day * cm2_to_mm2 / day_to_seconds
-
-    return diffusion_rate_mm2_per_s
-
 def get_file_paths():
     file_paths = {}
 
