@@ -1,0 +1,1 @@
+pyuic5 -x file_selection.ui -o file_selection_ui.py
