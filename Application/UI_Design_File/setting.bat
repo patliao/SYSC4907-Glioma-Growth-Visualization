@@ -1,1 +1,0 @@
-pyuic5 -x setting_widget.ui -o setting_ui.py

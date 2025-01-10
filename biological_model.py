@@ -10,13 +10,14 @@ import numpy as np
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons
 from scipy.ndimage import gaussian_filter
 from skimage.transform import resize
+from Application.equation_constant import EquationConstant
 
 matplotlib.use('TkAgg')
 
-SPATIAL_RESOLUTION = 1.0 # mm
-DIFFUSION_RATE = 0.5 # mm/day
-REACTION_RATE = 0.01 # per day
-NUM_STEPS = 500 # number of steps in time in the model
+# SPATIAL_RESOLUTION = 1.0 # mm
+# DIFFUSION_RATE = 0.5 # mm/day
+# REACTION_RATE = 0.01 # per day
+# NUM_STEPS = 500 # number of steps in time in the model
 # FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
 class BiologicalModel:
@@ -24,12 +25,27 @@ class BiologicalModel:
 
     def __init__(self):
         self.file_paths = {}
+        self.diffusion_rate = EquationConstant.DIFFUSION_RATE
+        self.reaction_rate = EquationConstant.REACTION_RATE
+
 
     @classmethod
     def instance(cls):
         if cls._instance is None:
             cls._instance = BiologicalModel()
         return cls._instance
+
+    def get_diffusion_rate(self):
+        return self.diffusion_rate
+
+    def set_diffusion_rate(self, diffusion_rate):
+        self.diffusion_rate = diffusion_rate
+
+    def get_reaction_rate(self):
+        return self.reaction_rate
+
+    def set_reaction_rate(self, reaction_rate):
+        self.reaction_rate = reaction_rate
 
     # def get_file_paths(self):
     #     file_paths = {}
@@ -157,14 +173,14 @@ class BiologicalModel:
 
         # Slider for controlling time step
         ax_time_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
-        time_slider = Slider(ax_time_slider, 'Time Step', 0, NUM_STEPS, valinit=0, valstep=1)
+        time_slider = Slider(ax_time_slider, 'Time Step', 0, EquationConstant.NUM_STEPS, valinit=0, valstep=1)
     
         def update_time_step(val):
             calculated_time = calculate_time_in_days(val)
             time_slider.valtext.set_text(f"{calculated_time:.2f} days")
 
         def calculate_time_in_days(step):
-            time_step = (SPATIAL_RESOLUTION ** 2) / (2 * 3 * DIFFUSION_RATE)
+            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * self.diffusion_rate)
             return step * time_step
 
         time_slider.on_changed(update_time_step)
@@ -234,9 +250,9 @@ class BiologicalModel:
             tumor_mask_resized_sagittal = self.resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
             tumor_mask_resized_coronal = self.resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
             tumor_mask_resized_axial = self.resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
-            grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step, brain_mask=brain_mask_sagittal)
-            grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step, brain_mask=brain_mask_coronal)
-            grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=DIFFUSION_RATE, reaction_rate=REACTION_RATE, time_steps=time_step, brain_mask=brain_mask_axial)
+            grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=self.diffusion_rate, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_sagittal)
+            grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=self.diffusion_rate, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_coronal)
+            grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=self.diffusion_rate, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_axial)
 
             # Apply tumor overlays
             if overlay_on:
@@ -266,7 +282,8 @@ class BiologicalModel:
         ax_sagittal.set_facecolor('black')
         ax_coronal.set_facecolor('black')
         ax_axial.set_facecolor('black')
-        plt.show()
+        # plt.show()
+        return fig
 
     def get_max_slice_value(self, mri_data, current_scan):
         mri_shape = mri_data[current_scan].shape
@@ -293,7 +310,8 @@ class BiologicalModel:
         mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
 
         # Initialize the interactive visualization
-        self.interactive_growth_visualization(mri_data)
+        testFig = self.interactive_growth_visualization(mri_data)
+        return testFig
 
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
