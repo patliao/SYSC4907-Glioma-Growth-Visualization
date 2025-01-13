@@ -47,44 +47,44 @@ class BiologicalModel:
     def set_reaction_rate(self, reaction_rate):
         self.reaction_rate = reaction_rate
 
-    # def get_file_paths(self):
-    #     file_paths = {}
-    #
-    #     print("Please select the MRI files for the following sequences:")
-    #     root = Tk()
-    #     root.withdraw()  # Hide the main Tkinter window
-    #
-    #     for key in FILE_KEYS:
-    #         print(f"Select the {key.upper()} file:")
-    #         file_path = self.get_selected_file(key)
-    #         file_paths[key] = file_path
-    #
-    #     root.destroy()
-    #     return file_paths
+    def get_file_paths(self):
+        file_paths = {}
 
-    # def get_selected_file(self, key):
-    #     file_path = askopenfilename(title=f"Select the {key.upper()} file")
-    #     if not file_path:
-    #         print(f"File selection for {key.upper()} was canceled. Exiting.")
-    #         exit()
-    #     return file_path
+        print("Please select the MRI files for the following sequences:")
+        root = Tk()
+        root.withdraw()  # Hide the main Tkinter window
 
-    # def auto_load_files(self):
-    #     file_paths = {}
-    #     current_directory = os.getcwd()
-    #     for root, dirs, files in os.walk(current_directory):
-    #         for file_name in files:
-    #             for file_type in FILE_KEYS:
-    #                 if file_type in file_name.lower():
-    #                     file_paths[file_type] = os.path.join(root, file_name)
-    #
-    #     for key in FILE_KEYS:
-    #         if key not in file_paths:
-    #             print(f"WARNING: {key} FILE NOT FOUND. PLEASE SELECT FROM FILES.")
-    #             file_path = self.get_selected_file()
-    #             file_paths[key] = file_path
-    #
-    #     return file_paths
+        for key in EquationConstant.FILE_KEYS:
+            print(f"Select the {key.upper()} file:")
+            file_path = self.get_selected_file(key)
+            file_paths[key] = file_path
+
+        root.destroy()
+        return file_paths
+
+    def get_selected_file(self, key):
+        file_path = askopenfilename(title=f"Select the {key.upper()} file")
+        if not file_path:
+            print(f"File selection for {key.upper()} was canceled. Exiting.")
+            exit()
+        return file_path
+
+    def auto_load_files(self):
+        file_paths = {}
+        current_directory = os.getcwd()
+        for root, dirs, files in os.walk(current_directory):
+            for file_name in files:
+                for file_type in EquationConstant.FILE_KEYS:
+                    if file_type in file_name.lower():
+                        file_paths[file_type] = os.path.join(root, file_name)
+
+        for key in EquationConstant.FILE_KEYS:
+            if key not in file_paths:
+                print(f"WARNING: {key} FILE NOT FOUND. PLEASE SELECT FROM FILES.")
+                file_path = self.get_selected_file()
+                file_paths[key] = file_path
+
+        return file_paths
 
     # Step 1: Load MRI Data
     def load_mri_data(self, file_paths):
@@ -282,7 +282,7 @@ class BiologicalModel:
         ax_sagittal.set_facecolor('black')
         ax_coronal.set_facecolor('black')
         ax_axial.set_facecolor('black')
-        # plt.show()
+        plt.show()
         return fig
 
     def get_max_slice_value(self, mri_data, current_scan):
@@ -316,18 +316,18 @@ class BiologicalModel:
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-# if __name__ == "__main__":
-#     obj = BiologicalModel.instance()
-#     args = obj.handle_args()
-#
-#     if args.auto:
-#         print("Generating model with auto-selected files...")
-#         file_paths = obj.auto_load_files()
-#     else:
-#         file_paths = obj.get_file_paths()
-#
-#
-#     mri_data = obj.load_mri_data(file_paths) # Load the MRI data
-#
-#     # Initialize the interactive visualization
-#     obj.interactive_growth_visualization(mri_data)
+if __name__ == "__main__":
+    obj = BiologicalModel.instance()
+    args = obj.handle_args()
+
+    if args.auto:
+        print("Generating model with auto-selected files...")
+        file_paths = obj.auto_load_files()
+    else:
+        file_paths = obj.get_file_paths()
+
+
+    mri_data = obj.load_mri_data(file_paths) # Load the MRI data
+
+    # Initialize the interactive visualization
+    obj.interactive_growth_visualization(mri_data)
