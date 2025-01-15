@@ -19,11 +19,11 @@ from Application.equation_constant import EquationConstant
 
 # matplotlib.use('TkAgg')
 
-SPATIAL_RESOLUTION = 1.0 # mm
-DIFFUSION_RATE = 0.1 # mm/day
-REACTION_RATE = 0.01 # per day
-NUM_STEPS = 500 # number of steps in time in the model
-FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
+# SPATIAL_RESOLUTION = 1.0 # mm
+# DIFFUSION_RATE = 0.1 # mm/day
+# REACTION_RATE = 0.01 # per day
+# NUM_STEPS = 500 # number of steps in time in the model
+# FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
 class BiologicalModel:
     _instance = None
@@ -98,7 +98,6 @@ class BiologicalModel:
     def load_mri_data(self, file_paths):
         return {key: nib.load(file).get_fdata() for key, file in file_paths.items()}
 
-
     # Step 2: Resize the tumor mask to match the slice shape
     def resize_mask_to_slice(self, tumor_mask, slice_shape, dtype=bool):
         resized_mask = resize(tumor_mask, slice_shape, order=0, preserve_range=True, anti_aliasing=False)
@@ -112,12 +111,10 @@ class BiologicalModel:
 
         for _ in range(time_steps):
             # Apply Gaussian filter for diffusion and add reaction (growth)
-            # mask = gaussian_filter(mask, sigma=self.diffusion_rate)
-            diffused_mask = gaussian_filter(mask, sigma=1.0) * diffusion_map_resized
+            diffused_mask = gaussian_filter(mask, sigma=1.0) * diffusion_map_resized # adjust each voxel according to the diffusion map
             growth = self.reaction_rate * mask * (1 - mask)
-            # mask = mask + (growth * brain_mask_resized) # ensure the growth is kept within the brain region
  
-            mask = brain_mask_resized * (mask + diffused_mask + growth)
+            mask = brain_mask_resized * (mask + diffused_mask + growth) # ensures all contributions are restricted to brain region
             mask = np.clip(mask, 0, 1)  # Keep values in range
 
         return mask > 0.5  # Threshold to keep mask as binary
@@ -243,11 +240,7 @@ class BiologicalModel:
             diffusion_map_sagittal = diffusion_map_with_default[slice_idx, :, :]  # sagittal 
             diffusion_map_coronal = diffusion_map_with_default[:, slice_idx, :]  # coronal
             diffusion_map_axial = diffusion_map_with_default[:, :, slice_idx]  # axial
-            print(f"diffusion_map_with_default Min: {diffusion_map_with_default.min()}, Max: {diffusion_map_with_default.max()}, Non-Zero: {np.count_nonzero(diffusion_map_with_default)}")
-            print(f"diffusion_map_coronal Min: {diffusion_map_coronal.min()}, Max: {diffusion_map_coronal.max()}, Non-Zero: {np.count_nonzero(diffusion_map_coronal)}")
-            print(f"diffusion_map_sagittal Min: {diffusion_map_sagittal.min()}, Max: {diffusion_map_sagittal.max()}, Non-Zero: {np.count_nonzero(diffusion_map_sagittal)}")
-            print(f"diffusion_map_axial Min: {diffusion_map_axial.min()}, Max: {diffusion_map_axial.max()}, Non-Zero: {np.count_nonzero(diffusion_map_axial)}")
-    
+
             def create_brain_mask(mri_image):
                 brain_mask = mri_image > 0
                 return brain_mask
@@ -349,9 +342,6 @@ class BiologicalModel:
         return mask.get_fdata()
     
     def create_diffusion_map(self, t1_image):
-        GREY_DIFFUSION_RATE = 0.2
-        WHITE_DIFFUSION_RATE = 0.7
-        CSF_DIFFUSION_RATE = 2.0
 
         fast = Node(FAST(), name="fast")
         fast.inputs.in_files = t1_image
@@ -373,9 +363,9 @@ class BiologicalModel:
         white_matter_data = white_matter_img.get_fdata()
 
         diffusion_map = np.zeros_like(grey_matter_data)
-        diffusion_map += csf_data * CSF_DIFFUSION_RATE
-        diffusion_map += grey_matter_data * GREY_DIFFUSION_RATE
-        diffusion_map += white_matter_data * WHITE_DIFFUSION_RATE
+        diffusion_map += csf_data * EquationConstant.CSF_DIFFUSION_RATE
+        diffusion_map += grey_matter_data * EquationConstant.GREY_DIFFUSION_RATE
+        diffusion_map += white_matter_data * EquationConstant.WHITE_DIFFUSION_RATE
 
         return diffusion_map # map for varying diffusion based on brain matter
 
