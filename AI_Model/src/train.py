@@ -8,13 +8,14 @@ import nibabel as nib
 
 def determine_label(seg_file):
     """
-    Determine label based on the segmentation file content.
+    Determine label based on the processed segmentation file (.npy).
     Example: Assign 0 for less tumor involvement, 1 for more involvement.
     """
-    seg_data = nib.load(seg_file).get_fdata()
+    seg_data = np.load(seg_file)  # Use numpy to load the .npy file
     unique_values = np.unique(seg_data)
-    # Placeholder logic: adjust based on your actual data
+    # Example logic: Adjust based on your segmentation data
     return 0 if len(unique_values) <= 2 else 1
+
 
 
 def load_data(data_dir):
@@ -31,7 +32,7 @@ def load_data(data_dir):
             seg_file = os.path.join(subject_path, "seg.npy")
             if os.path.exists(flair_file) and os.path.exists(seg_file):
                 X.append(np.load(flair_file))  # Use FLAIR as input
-                label = determine_label(os.path.join(data_dir, subject, "seg.npy"))
+                label = determine_label(seg_file)  # Fixed to use .npy files
                 y.append(label)
             else:
                 print(f"Missing files for subject {subject}, skipping...")
