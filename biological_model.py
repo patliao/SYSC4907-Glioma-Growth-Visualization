@@ -19,12 +19,6 @@ from Application.equation_constant import EquationConstant
 
 # matplotlib.use('TkAgg')
 
-# SPATIAL_RESOLUTION = 1.0 # mm
-# DIFFUSION_RATE = 0.1 # mm/day
-# REACTION_RATE = 0.01 # per day
-# NUM_STEPS = 500 # number of steps in time in the model
-# FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
-
 class BiologicalModel:
     _instance = None
 
@@ -32,7 +26,6 @@ class BiologicalModel:
         self.file_paths = {}
         self.diffusion_rate = EquationConstant.DIFFUSION_RATE
         self.reaction_rate = EquationConstant.REACTION_RATE
-
 
     @classmethod
     def instance(cls):
@@ -119,6 +112,7 @@ class BiologicalModel:
 
         return mask > 0.5  # Threshold to keep mask as binary
 
+
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
     def interactive_growth_visualization(self, mri_data):
         sagittal_slice_idx = mri_data['flair'].shape[0] // 2  # Start at the middle slice along the z-axis (sagittal)
@@ -194,7 +188,8 @@ class BiologicalModel:
             time_slider.valtext.set_text(f"{calculated_time:.2f} days")
 
         def calculate_time_in_days(step):
-            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * self.diffusion_rate)
+            max_diffusion = max(self.diffusion_rate, EquationConstant.CSF_DIFFUSION_RATE, EquationConstant.GREY_DIFFUSION_RATE, EquationConstant.WHITE_DIFFUSION_RATE)
+            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
             return step * time_step
 
         time_slider.on_changed(update_time_step)
@@ -342,6 +337,7 @@ class BiologicalModel:
         return mask.get_fdata()
     
     def create_diffusion_map(self, t1_image):
+        print("Segmenting MRI data (this will take several moments)...")
 
         fast = Node(FAST(), name="fast")
         fast.inputs.in_files = t1_image
@@ -362,13 +358,33 @@ class BiologicalModel:
         grey_matter_data = grey_matter_img.get_fdata()
         white_matter_data = white_matter_img.get_fdata()
 
+        diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
+
+        return diffusion_map 
+
+    def build_diffusion_map_based_on_brain_matter(self, csf_data, grey_matter_data, white_matter_data):
         diffusion_map = np.zeros_like(grey_matter_data)
+
+        # THIS APPROACH DOES WEIGHTED SUMS SO THE DIFFUSION IS THE WEIGHTED AV OF ALL MATTER IN THE VOXEL
         diffusion_map += csf_data * EquationConstant.CSF_DIFFUSION_RATE
         diffusion_map += grey_matter_data * EquationConstant.GREY_DIFFUSION_RATE
         diffusion_map += white_matter_data * EquationConstant.WHITE_DIFFUSION_RATE
 
-        return diffusion_map # map for varying diffusion based on brain matter
+        # THIS APPROACH JUST DETERMINES THE ENTIRE VOXEL TO BE WHATEVER MATTER IS THE MOST PREVALENT
+        # for x in range(diffusion_map.shape[0]):
+        #     for y in range(diffusion_map.shape[1]):
+        #         for z in range(diffusion_map.shape[2]):
+        #             MOST_PREVALENT_MATTER_IN_VOXEL = max(csf_data[x, y, z], grey_matter_data[x, y, z], white_matter_data[x, y, z])
+        #             if csf_data[x, y, z] == MOST_PREVALENT_MATTER_IN_VOXEL:
+        #                 diffusion_map[x, y, z] = EquationConstant.CSF_DIFFUSION_RATE
+        #             elif grey_matter_data[x, y, z] == MOST_PREVALENT_MATTER_IN_VOXEL:
+        #                 diffusion_map[x, y, z] = EquationConstant.GREY_DIFFUSION_RATE
+        #             elif white_matter_data[x, y, z] == MOST_PREVALENT_MATTER_IN_VOXEL:
+        #                 diffusion_map[x, y, z] = EquationConstant.WHITE_DIFFUSION_RATE
 
+        return diffusion_map
+
+  
 if __name__ == "__main__":
     obj = BiologicalModel.instance()
     args = obj.handle_args()
