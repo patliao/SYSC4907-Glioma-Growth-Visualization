@@ -1,200 +1,261 @@
-# implementing the CNN-based approach using transfer learning.
-# integrates key steps for building and training a CNN using a pre-trained model like ResNet-50 to classify glioma MRI images
-
+import nibabel as nib
 import os
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.applications import ResNet50
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Flatten, Dropout
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from scipy.ndimage import zoom
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
-import matplotlib.pyplot as plt
-import nibabel as nib
+from tensorflow.keras import layers, models
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.optimizers import Adam
+import plotly.graph_objects as go
 
-# Step 1: Load and Preprocess MRI Data
-def load_and_preprocess_data(image_dir, target_size=(224, 224)):
-    """
-    Loads MRI images from a directory and preprocesses them for training.
-    Args:
-        image_dir (str): Path to the directory containing MRI images.
-        target_size (tuple): Target size to resize images to (default: 224x224).
-    Returns:
-        images (numpy.ndarray): Preprocessed image data.
-        labels (numpy.ndarray): Corresponding labels for the images.
-    """
+
+
+# Define the path to the data folder
+data_folder = 'data'
+
+# Load the NIfTI files for each week
+def load_nii_file(file_path):
+    print(f"Loading file: {file_path}")  # Debugging: show file path being loaded
+    img = nib.load(file_path)
+    return img.get_fdata()
+
+# Resize image to target shape using zoom
+def resize_image(image_data, target_shape):
+    print(f"Resizing image from shape {image_data.shape} to {target_shape}")  # Debugging: track resizing
+    factors = np.array(target_shape) / np.array(image_data.shape)
+    resized_image = zoom(image_data, factors, order=1)
+    print(f"Resized image shape: {resized_image.shape}")  # Debugging: show new shape
+    return resized_image
+
+# Normalize image to [0, 1] range
+def normalize_image(image_data):
+    print(f"Normalizing image with min {np.min(image_data)} and max {np.max(image_data)}")  # Debugging: track normalization
+    normalized_image = (image_data - np.min(image_data)) / (np.max(image_data) - np.min(image_data))
+    print(f"Normalized image min {np.min(normalized_image)} and max {np.max(normalized_image)}")  # Debugging: check range
+    return normalized_image
+
+# Load the images and masks for each week
+def load_week_data(week_folder, target_shape=None):
+    image_files = ['CT1.nii']
+    mask_files = ['ct1_seg_mask.nii']
+    
+    images = {}
+    masks = {}
+    
+    # Load images
+    for img_file in image_files:
+        img_path = os.path.join(data_folder, week_folder, img_file)
+        img_data = load_nii_file(img_path)
+        
+        # Resize and normalize images
+        if target_shape:
+            img_data = resize_image(img_data, target_shape)
+        img_data = normalize_image(img_data)
+        
+        images[img_file] = img_data
+        print(f"Loaded and processed image {img_file} with shape {img_data.shape}")  # Debugging: confirm processing
+
+    # Load masks
+    for mask_file in mask_files:
+        mask_path = os.path.join(data_folder, week_folder, mask_file)
+        mask_data = load_nii_file(mask_path)
+        
+        # Resize the mask to the target shape
+        if target_shape:
+            mask_data = resize_image(mask_data, target_shape)
+        
+        # Ensure mask is binary (0 or 1)
+        mask_data = np.where(mask_data > 0, 1, 0)
+        masks[mask_file] = mask_data
+        print(f"Processed mask {mask_file} with shape {mask_data.shape}")  # Debugging: check mask
+
+    return images, masks
+
+# Load the data and resize to a consistent target shape (e.g., 256x256x64)
+target_shape = (128, 128, 64)  # Keeping high resolution for better visualization
+week1_data = load_week_data('week000-1', target_shape)
+week2_data = load_week_data('week044',target_shape)
+
+# Convert image and mask dictionaries into arrays
+def prepare_data_for_model(week1_data, week2_data):
     images = []
-    labels = []
-
-    # Iterate through all files in the image directory (no subdirectories assumed)
-    for img_file in os.listdir(image_dir):
-        img_path = os.path.join(image_dir, img_file)
-        print("-------------------------------")
-        print(f"Found file: {img_file}")  # Debugging line
-        
-        # Process only .nii files
-        if img_file.endswith(".nii"):
-            print(f"Loading MRI image: {img_path}")  # Debugging line
-            
-            # Load the .nii file using nibabel
-            img = nib.load(img_path).get_fdata()  # Load the image data
-
-            if img.ndim ==3:
-                print(f"Image shape: {img.shape}")
-                # Resize the entire 3D image (height, width, depth)
-                # TensorFlow's resize expects 4D input (batch_size, height, width, channels)
-                # So we need to add a batch dimension and handle each slice/channel
-                img_resized = tf.image.resize(img, target_size)
-                img_resized = np.expand_dims(img_resized, axis=-1)  # Add channel dimension if needed
-
-                # Visualize one of the resized slices (for example, the middle slice in the depth axis)
-                mid_slice = img_resized.shape[2] // 2  # Middle slice
-                plt.imshow(img_resized[:, :, mid_slice, 0], cmap='gray')  # Display slice
-                plt.title(f"Loaded MRI Image Slice: {img_file}")
-                plt.axis('off')  # Hide axis
-                plt.show()
-                
-                    # Flatten the depth (last dimension) into separate 2D slices
-                for i in range(img_resized.shape[2]):  # Iterate over the depth dimension
-                    img_slice = img_resized[:, :, i, 0]  # Get the i-th slice (height, width)
-                    images.append(img_slice)  # Append the slice
-                    labels.append(image_dir.split('/')[-1])  # Use the folder name as the label
-                    # Append the resized image and label
-                    images.append(img_resized)  # Use the resized volume
-                    labels.append(image_dir.split('/')[-1])  # Label based on parent folder name
-        
+    masks = []
     
-    # Normalize pixel values to [0, 1]
-    images = np.array(images) / 255.0
-    labels = np.array(labels)
-    return images, labels
-
-# Step 2: Prepare Data
-image_dir = "./TCGA-HT-8111"  # Replace with the actual path
-images, labels = load_and_preprocess_data(image_dir)
-
-print(images.shape) #debugging for image shape (should match 4 dimensions)
-
-# Encode labels (e.g., 'low_grade', 'high_grade')
-label_mapping = {label: idx for idx, label in enumerate(np.unique(labels))}
-encoded_labels = np.array([label_mapping[label] for label in labels])
-
-# Split data into training, validation, and test sets
-X_train, X_temp, y_train, y_temp = train_test_split(images, encoded_labels, test_size=0.3, random_state=42)
-X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
-
-# Step 3: Data Augmentation
-datagen = ImageDataGenerator(
-    rotation_range=10,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    horizontal_flip=True,
-    vertical_flip=False
-)
-
-# Step 4: Transfer Learning with ResNet-50
-def build_transfer_learning_model():
-    """
-    Builds a CNN model using ResNet50 for transfer learning.
-    Returns:
-        model (tensorflow.keras.Model): Compiled CNN model.
-    """
-    base_model = ResNet50(weights="imagenet", include_top=False, input_shape=(224, 224, 3))
-    for layer in base_model.layers[:143]:  # Freeze first 143 layers
-        layer.trainable = False
+    # Week 1 data (training)
+    images.append(week1_data[0]['CT1.nii'])
+    masks.append(week1_data[1]['ct1_seg_mask.nii'])
     
-    x = Flatten()(base_model.output)
-    x = Dense(256, activation='relu')(x)
-    x = Dropout(0.5)(x)
-    predictions = Dense(len(label_mapping), activation='softmax')(x)
+    # Week 2 data (validation)
+    images.append(week2_data[0]['CT1.nii'])
+    masks.append(week2_data[1]['ct1_seg_mask.nii'])
     
-    model = Model(inputs=base_model.input, outputs=predictions)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    # Convert to numpy arrays
+    images = np.array(images)
+    masks = np.array(masks)
+    
+    # Debugging: Check the shape of the data
+    print(f"Images shape: {images.shape}, Masks shape: {masks.shape}")
+    
+    # Split the data into training and validation sets
+    X_train, X_val, y_train, y_val = train_test_split(images, masks, test_size=0.5, random_state=42)
+    
+    return X_train, X_val, y_train, y_val
+
+# Prepare the data
+X_train, X_val, y_train, y_val = prepare_data_for_model(week1_data, week2_data)
+
+# Debugging: Print shapes of prepared data
+print(f"\nTraining images shape: {X_train.shape}, Training masks shape: {y_train.shape}")
+print(f"Validation images shape: {X_val.shape}, Validation masks shape: {y_val.shape}")
+
+# Build the U-Net model
+def build_unet_3d(input_shape):
+    inputs = layers.Input(input_shape)
+    
+    # Encoder path
+    conv1 = layers.Conv3D(32, (3, 3, 3), activation='relu', padding='same')(inputs)
+    conv1 = layers.Conv3D(32, (3, 3, 3), activation='relu', padding='same')(conv1)
+    pool1 = layers.MaxPooling3D((2, 2, 2))(conv1)
+    
+    # Bottleneck
+    conv2 = layers.Conv3D(64, (3, 3, 3), activation='relu', padding='same')(pool1)
+    
+    # Decoder path
+    upconv1 = layers.Conv3DTranspose(32, (3, 3, 3), strides=(2, 2, 2), padding='same')(conv2)
+    merge1 = layers.concatenate([upconv1, conv1], axis=-1)
+    conv3 = layers.Conv3D(32, (3, 3, 3), activation='relu', padding='same')(merge1)
+    
+    # Output layer
+    output = layers.Conv3D(1, (1, 1, 1), activation='sigmoid')(conv3)
+    
+    model = models.Model(inputs, output)
     return model
 
-model = build_transfer_learning_model()
+input_shape = (128, 128, 64, 1)  # Matches the target shape for images
+model = build_unet_3d(input_shape)
+model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
-# Step 5: Train the Model
-batch_size = 32
-epochs = 10
-train_generator = datagen.flow(X_train, y_train, batch_size=batch_size)
+# Debugging: Model summary
+model.summary()
 
-callbacks = [
-    EarlyStopping (
-        monitor ='val_loss', 
-        patience = 3, #subject to change
-        restore_best_weights = True
-    ),
-    ModelCheckpoint(
-        filepath = 'best_model.nii', #subject to change
-        monitor = 'val_loss',
-        save_best_only = True
-    ),
-    ReduceLROnPlateau(
-        monitor = 'val_loss',
-        factor = 0.1, #subject to change
-        patience = 3, #subject to change
-        min_lr = 1e-5 #subject to change
-    )
-]
+# Callbacks
+checkpoint = ModelCheckpoint('best_model.keras', monitor='val_loss', save_best_only=True, verbose=1)
+early_stopping = EarlyStopping(monitor='val_loss', patience=2, verbose=1)
 
-callbacks.append(
-    TensorBoard(
-        log_dir='./logs',
-        histogram_freq=1,
-        write_graph=True,
-        write_images=True
-    )
-)
-#tensorboard --logdir=./logs - for terminal command to visualize progress
-
+# Train the model (2 epochs for quick debugging)
+print("Starting training...")
 history = model.fit(
-    train_generator,
+    X_train, y_train,
     validation_data=(X_val, y_val),
-    epochs=epochs,
-    batch_size=batch_size,
-    verbose=1,
-    callbacks = callbacks
+    batch_size=1,  # Keeping batch size 1 for large images (adjust if needed)
+    epochs=2,  # Reduced epochs for quick debugging
+    callbacks=[checkpoint, early_stopping],
+    verbose=1
 )
+print("Training completed.")
 
-# Step 6: Evaluate and Save Model
-test_predictions = model.predict(X_test)
-test_predictions = np.argmax(test_predictions, axis=1)
-print("Classification Report:\n", classification_report(y_test, test_predictions))
-print("Accuracy:", accuracy_score(y_test, test_predictions))
+# Visualization: Using the same data and visualization function
+images = [week1_data[0]['CT1.nii'], week2_data[0]['CT1.nii']]
+masks = [week1_data[1]['ct1_seg_mask.nii'], week2_data[1]['ct1_seg_mask.nii']]
 
-model.save("glioma_classification_model.h5")
-print("Model saved as glioma_classification_model.h5")
+def visualize_growth(images, masks, time_labels=["Week 1", "Week 2"]):
+    # Find the maximum value across both weeks for images and masks
+    max_value_img = max(np.max(images[0]), np.max(images[1]))
+    max_value_mask = max(np.max(masks[0]), np.max(masks[1]))
 
-# Step 7: Visualize Training Results
-def plot_training(history):
-    """
-    Plots training and validation accuracy/loss curves.
-    Args:
-        history (tensorflow.keras.callbacks.History): Training history object.
-    """
-    plt.figure(figsize=(12, 4))
-    
-    # Plot accuracy
-    plt.subplot(1, 2, 1)
-    plt.plot(history.history['accuracy'], label='Train Accuracy')
-    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-    plt.title('Accuracy over Epochs')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    
-    # Plot loss
-    plt.subplot(1, 2, 2)
-    plt.plot(history.history['loss'], label='Train Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title('Loss over Epochs')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    
-    plt.show()
+    # Normalize images and masks using the same max values
+    img_week1 = images[0] / max_value_img
+    img_week2 = images[1] / max_value_img
+    mask_week1 = masks[0] / max_value_mask
+    mask_week2 = masks[1] / max_value_mask
 
-plot_training(history)
+    # Create the figure
+    fig = go.Figure()
+
+    # Add Brain Image and Glioma Mask for Week 1
+    fig.add_trace(go.Volume(
+        x=np.repeat(np.arange(img_week1.shape[0]), img_week1.shape[1] * img_week1.shape[2]),
+        y=np.tile(np.repeat(np.arange(img_week1.shape[1]), img_week1.shape[2]), img_week1.shape[0]),
+        z=np.tile(np.arange(img_week1.shape[2]), img_week1.shape[0] * img_week1.shape[1]),
+        value=img_week1.flatten(),
+        isomin=0,
+        isomax=1,
+        opacity=0.1,
+        surface_count=5,
+        colorscale='Gray',
+        name="Brain Image Week 1",
+        visible=True  # Initially visible for Week 1
+    ))
+
+    fig.add_trace(go.Volume(
+        x=np.repeat(np.arange(mask_week1.shape[0]), mask_week1.shape[1] * mask_week1.shape[2]),
+        y=np.tile(np.repeat(np.arange(mask_week1.shape[1]), mask_week1.shape[2]), mask_week1.shape[0]),
+        z=np.tile(np.arange(mask_week1.shape[2]), mask_week1.shape[0] * mask_week1.shape[1]),
+        value=mask_week1.flatten(),
+        isomin=0,
+        isomax=1,
+        opacity=0.3,
+        surface_count=5,
+        colorscale='Reds',
+        name="Glioma Mask Week 1",
+        visible=True  # Initially visible for Week 1
+    ))
+
+    # Add Brain Image and Glioma Mask for Week 2
+    fig.add_trace(go.Volume(
+        x=np.repeat(np.arange(img_week2.shape[0]), img_week2.shape[1] * img_week2.shape[2]),
+        y=np.tile(np.repeat(np.arange(img_week2.shape[1]), img_week2.shape[2]), img_week2.shape[0]),
+        z=np.tile(np.arange(img_week2.shape[2]), img_week2.shape[0] * img_week2.shape[1]),
+        value=img_week2.flatten(),
+        isomin=0,
+        isomax=1,
+        opacity=0.1,
+        surface_count=5,
+        colorscale='Gray',
+        name="Brain Image Week 2",
+        visible=False  # Initially hidden for Week 2
+    ))
+
+    fig.add_trace(go.Volume(
+        x=np.repeat(np.arange(mask_week2.shape[0]), mask_week2.shape[1] * mask_week2.shape[2]),
+        y=np.tile(np.repeat(np.arange(mask_week2.shape[1]), mask_week2.shape[2]), mask_week2.shape[0]),
+        z=np.tile(np.arange(mask_week2.shape[2]), mask_week2.shape[0] * mask_week2.shape[1]),
+        value=mask_week2.flatten(),
+        isomin=0,
+        isomax=1,
+        opacity=0.3,
+        surface_count=5,
+        colorscale='Reds',
+        name="Glioma Mask Week 2",
+        visible=False  # Initially hidden for Week 2
+    ))
+
+    # Add frames for Week 1 and Week 2 visibility
+    fig.update_layout(
+        updatemenus=[{
+            'buttons': [
+                {
+                    'label': 'Week 1',
+                    'method': 'update',
+                    'args': [{'visible': [True, True, False, False]}],
+                },
+                {
+                    'label': 'Week 2',
+                    'method': 'update',
+                    'args': [{'visible': [False, False, True, True]}],
+                }
+            ],
+            'direction': 'down',
+            'pad': {'r': 10, 't': 10},
+            'showactive': True,
+        }]
+    )
+
+    fig.show()
+
+# Now call the visualization function with the data
+visualize_growth(
+    [week1_data[0]['CT1.nii'], week2_data[0]['CT1.nii']],
+    [week1_data[1]['ct1_seg_mask.nii'], week2_data[1]['ct1_seg_mask.nii']],
+    time_labels=["Week 1", "Week 2"]
+)
