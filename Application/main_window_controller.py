@@ -1,8 +1,10 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))) # for importing from biological_model
 
 from biological_model import BiologicalModel
-from Application.main_window_view import MainWindowView
-
-
+from main_window_view import MainWindowView
 class MainWindowController:
     _instance = None
 
