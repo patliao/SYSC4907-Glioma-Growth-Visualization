@@ -139,7 +139,7 @@ class BiologicalModel:
             resized_data[key] = resized_scan.astype(scan.dtype)  # Retain the original dtype
         return resized_data
     
-    def segment_flair_with_threshold(self, flair_image, smoothing_sigma=1, min_area=50, threshold_factor=2.5):
+    def segment_flair_with_threshold(self, flair_image, smoothing_sigma=1, min_area=50, threshold_factor=3.2):
         # Step 1: Calculate dynamic threshold based on image statistics
         mean_intensity = np.mean(flair_image)
         std_intensity = np.std(flair_image)
@@ -177,6 +177,17 @@ class BiologicalModel:
     # Step 2: Resize the tumor mask to match the slice shape
     def resize_mask_to_slice(self, tumor_mask, slice_shape):
         resized_mask = resize(tumor_mask, slice_shape, order=0, preserve_range=True, anti_aliasing=False)
+        flip_type = ""
+        if flip_type == "horizontal":
+            resized_mask = np.flip(resized_mask)
+            resized_mask = np.flip(resized_mask)
+        elif flip_type == "horizontal":
+            resized_mask = np.fliplr(resized_mask)
+        elif flip_type == "both":
+            resized_mask = np.flip(resized_mask)  # Vertical
+            resized_mask = np.fliplr(resized_mask)  # Horizontal
+        else:
+            pass
         return resized_mask.astype(bool)
 
     # Step 3: Simulate Tumor Growth using Reaction-Diffusion
@@ -207,9 +218,11 @@ class BiologicalModel:
         initial_tumor_mask_axial = segmented_flair_mask[:, :, axial_slice_idx]
 
         # Resize the tumor masks to match the slice dimensions
-        tumor_mask_resized_sagittal = self.resize_mask_to_slice(initial_tumor_mask_sagittal, mri_data['flair'].shape[1:3])
-        tumor_mask_resized_coronal = self.resize_mask_to_slice(initial_tumor_mask_coronal, mri_data['flair'].shape[1:3])
-        tumor_mask_resized_axial = self.resize_mask_to_slice(initial_tumor_mask_axial, mri_data['flair'].shape[:2])
+        # Resize the tumor masks to match the slice dimensions
+        tumor_mask_resized_sagittal = self.resize_mask_to_slice(initial_tumor_mask_sagittal, mri_data['flair'].shape[1:])
+        tumor_mask_resized_coronal = self.resize_mask_to_slice(initial_tumor_mask_coronal, mri_data['flair'].shape[1:])
+        tumor_mask_resized_axial = self.resize_mask_to_slice(initial_tumor_mask_axial, mri_data['flair'].shape[1:])
+
         # Set up the figure and axis
         fig, (ax_sagittal, ax_coronal, ax_axial) = plt.subplots(1, 3, figsize=(20, 20))
         plt.subplots_adjust(left=0.25, bottom=0.35)
@@ -404,7 +417,7 @@ class BiologicalModel:
 
     def start_equation(self):
         mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
-        target_shape = (256, 256, 128)
+        target_shape = (400, 400, 400)
         mri_data = self.resize_mri_scans(mri_data, target_shape)
         # Initialize the interactive visualization
         testFig = self.interactive_growth_visualization(mri_data)

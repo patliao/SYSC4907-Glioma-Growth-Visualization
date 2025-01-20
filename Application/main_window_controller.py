@@ -1,6 +1,6 @@
 
 from biological_model import BiologicalModel
-from Application.main_window_view import MainWindowView
+from main_window_view import MainWindowView
 
 
 class MainWindowController:
