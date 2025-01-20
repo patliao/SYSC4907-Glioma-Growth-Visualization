@@ -1,6 +1,7 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtGui import QDoubleValidator
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
 
 from Application.main_window_ui import Ui_mainWindow
 from Application.equation_constant import EquationConstant
@@ -20,6 +21,11 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
         self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
+        # Resize processing information label
+        self.process_info_label.setMaximumHeight(5)
+        # Resize equation widget size
+        self.equation_widget.setMinimumHeight(500)
+
         # Assign user actions
         self.flair_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.FLAIR_KEY))
         self.glistrboost_file_button.clicked.connect(
@@ -30,6 +36,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
+
+        # Default Setting
+        self.flair_rb.setChecked(True)   # Flair is selected
+        self.toggle_checkbox.setChecked(True)  # toggle is selected
 
         self.auto_selection()
 
@@ -89,8 +99,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def update_equation_graph(self, fig):
         # self.canvas = FigureCanvasQTAgg(fig)
-        # # self.toolbar = NavigationToolbar2QT(self.canvas, self)
-        # self.verticalLayout_6.addWidget(self.canvas)
+        # self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        # self.equation_layout.addWidget(self.canvas)
         self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
 
     def auto_selection(self):
