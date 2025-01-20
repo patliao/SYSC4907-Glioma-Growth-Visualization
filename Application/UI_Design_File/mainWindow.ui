@@ -361,8 +361,11 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="styleSheet">
+           <string notr="true">color: rgb(255, 53, 3);</string>
+          </property>
           <property name="text">
-           <string/>
+           <string>data processing......</string>
           </property>
          </widget>
         </item>
@@ -371,7 +374,84 @@
       <widget class="QWidget" name="equation_widget" native="true">
        <layout class="QVBoxLayout" name="equation_layout"/>
       </widget>
-      <widget class="QWidget" name="ml_widget" native="true"/>
+     </widget>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout_6"/>
+    </item>
+    <item>
+     <widget class="QWidget" name="widget" native="true">
+      <layout class="QVBoxLayout" name="verticalLayout_7">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_11">
+         <item alignment="Qt::AlignLeft">
+          <widget class="QLabel" name="slice_label">
+           <property name="text">
+            <string>Slice Index:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSlider" name="slice_slider">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item alignment="Qt::AlignRight">
+          <widget class="QLabel" name="slice_value_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_10">
+         <item alignment="Qt::AlignLeft">
+          <widget class="QLabel" name="time_label">
+           <property name="text">
+            <string>Time Step: </string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSlider" name="time_slider">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item alignment="Qt::AlignRight">
+          <widget class="QLabel" name="time_value_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="save_info_label">
+      <property name="text">
+       <string/>
+      </property>
      </widget>
     </item>
    </layout>

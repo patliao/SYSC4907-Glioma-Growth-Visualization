@@ -1,18 +1,27 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtGui import QDoubleValidator
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
+from datetime import datetime
 
 from Application.main_window_ui import Ui_mainWindow
 from Application.equation_constant import EquationConstant
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import os.path
+from PyQt5.QtWidgets import QApplication
 
 class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
         self.setupUi(self)
+
+        # Default Setting
+        self.flair_rb.setChecked(True)   # Flair is selected
+        self.toggle_checkbox.setChecked(True)  # toggle is selected
+        self.process_info_label.hide()
+        self.disable_by_start(False)
+        self.time_slider.setMaximum(EquationConstant.NUM_STEPS)
 
         # Restrict user input
         self.diffusion_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_DIFFUSION, EquationConstant.MAX_DIFFUSION, 1))
@@ -21,12 +30,13 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
         self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
-        # Resize processing information label
-        self.process_info_label.setMaximumHeight(5)
-        # Resize equation widget size
-        self.equation_widget.setMinimumHeight(500)
+        # Default resize
+        self.process_info_label.setMaximumHeight(10)  # Resize processing information label
+        self.equation_widget.setMinimumHeight(300)  # Resize equation widget size
 
         # Assign user actions
+        self.actionSave.triggered.connect(self.save_screen)
+
         self.flair_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.FLAIR_KEY))
         self.glistrboost_file_button.clicked.connect(
             lambda: self.selected_file_clicked(EquationConstant.GLISTRBOOST_KEY))
@@ -34,12 +44,18 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1gd_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T1GD_KEY))
         self.t2_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T2_KEY))
 
+        self.flair_rb.toggled.connect(self.update_plt)
+        self.t1_rb.toggled.connect(self.update_plt)
+        self.t1gd_rb.toggled.connect(self.update_plt)
+        self.t2_rb.toggled.connect(self.update_plt)
+
+        self.toggle_checkbox.clicked.connect(self.update_plt)
+
+        self.slice_slider.sliderReleased.connect(self.update_plt)
+        self.time_slider.sliderReleased.connect(self.update_plt)
+
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
-
-        # Default Setting
-        self.flair_rb.setChecked(True)   # Flair is selected
-        self.toggle_checkbox.setChecked(True)  # toggle is selected
 
         self.auto_selection()
 
@@ -78,30 +94,92 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         return fileName, filePath
 
     def start_equation(self):
+        self.process_info_label.show()
+        QApplication.processEvents()
         diffusion = self.get_diffusion()
         reaction = self.get_reaction()
-        self.controller.run_equation_model(diffusion, reaction)
-        self.start_button.setDisabled(True)
-        self.reset_button.setDisabled(False)
-        self.disable_input_lineedit(True)
+        self.controller.run_equation_model(diffusion, reaction, self.get_cur_scan())
+        self.disable_by_start(True)
         self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion} and reaction rate {reaction}")
 
     def reset_equation(self):
-        self.start_button.setDisabled(False)
-        self.reset_button.setDisabled(True)
-        self.disable_input_lineedit(False)
+        self.disable_by_start(False)
         self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
                                                  f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
+
+    # def (self):
+    #     value = self.slice_slider.value()
+    #     print(f"slider released {value}")
+
+    def init_sliders(self, cur_slice, max_slice):
+        self.slice_slider.setSliderPosition(cur_slice)
+        self.slice_slider.setMaximum(max_slice)
+        self.time_slider.setSliderPosition(0)
+        self.update_slider_value_labels(0)
+
+    def update_slider_value_labels(self, time_val):
+        self.slice_value_label.setText(str(self.slice_slider.value()))
+        self.time_value_label.setText(f"{time_val} days")
+        self.process_info_label.hide()
+
+    def update_plt(self):
+        self.process_info_label.show()
+        QApplication.processEvents()
+        scan = self.get_cur_scan()
+        slice_i = self.slice_slider.value()
+        time_i = self.time_slider.value()
+        is_overlay = self.toggle_checkbox.isChecked()
+        self.controller.process_plts(scan, slice_i, time_i, is_overlay)
+
+    def get_cur_scan(self):
+        if self.t1_rb.isChecked():
+            scan = 't1'
+        elif self.t2_rb.isChecked():
+            scan = 't2'
+        elif self.t1gd_rb.isChecked():
+            scan = 't1gd'
+        else:
+            scan = 'flair'
+        return scan
+
+
+    def disable_by_start(self, has_start):
+        self.start_button.setDisabled(has_start)
+        self.reset_button.setDisabled(not has_start)
+        self.disable_input_lineedit(has_start)
+        self.disable_file_selection(has_start)
+        self.disable_radio_buttons(not has_start)
+        self.disable_sliders(not has_start)
 
     def disable_input_lineedit(self, disable):
         self.diffusion_rate_input.setDisabled(disable)
         self.reaction_rate_input.setDisabled(disable)
 
+    def disable_file_selection(self, disable):
+        self.flair_file_button.setDisabled(disable)
+        self.glistrboost_file_button.setDisabled(disable)
+        self.t1_file_button.setDisabled(disable)
+        self.t1gd_file_button.setDisabled(disable)
+        self.t2_file_button.setDisabled(disable)
+
+    def disable_radio_buttons(self, disable):
+        self.flair_rb.setDisabled(disable)
+        self.t1_rb.setDisabled(disable)
+        self.t1gd_rb.setDisabled(disable)
+        self.t2_rb.setDisabled(disable)
+
+    def disable_sliders(self, disable):
+        self.time_slider.setDisabled(disable)
+        self.slice_slider.setDisabled(disable)
+
     def update_equation_graph(self, fig):
         # self.canvas = FigureCanvasQTAgg(fig)
         # self.toolbar = NavigationToolbar2QT(self.canvas, self)
         # self.equation_layout.addWidget(self.canvas)
+        if self.equation_layout.count() > 0:
+            self.equation_layout.removeWidget(self.equation_layout.itemAt(0).widget())
         self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
+        self.process_info_label.hide()
 
     def auto_selection(self):
         """
@@ -154,3 +232,16 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             pass
         self.reaction_rate_input.setText(str(reaction_rate))
         return reaction_rate
+
+    def save_screen(self):
+        screenshot = self.window().grab()
+        saved_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        screenshot.save(saved_name + ".png", "PNG")
+        self.save_popup()
+
+    def save_popup(self):
+        message_box = QMessageBox()
+        message_box.setText("Screenshot Saved!")
+        message_box.setIcon(QMessageBox.Information)
+        message_box.setStandardButtons(QMessageBox.Ok)
+        message_box.exec_()
