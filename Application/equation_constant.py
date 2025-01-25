@@ -8,13 +8,13 @@ class EquationConstant:
     T2_KEY = 't2'
 
     SPATIAL_RESOLUTION = 1.0  # mm
-    DIFFUSION_RATE = 0.01  # mm/day
-    REACTION_RATE = 0.002  # per day
-    NUM_STEPS = 500  # number of steps in time in the model
+    DIFFUSION_RATE = 0.4  # mm/day
+    REACTION_RATE = 0.01  # per day
+    NUM_STEPS = 200  # number of steps in time in the model
 
-    GREY_DIFFUSION_RATE = 0.002
-    WHITE_DIFFUSION_RATE = 0.01
     CSF_DIFFUSION_RATE = 0.05
+    GREY_DIFFUSION_RATE = 0.004
+    WHITE_DIFFUSION_RATE = 0.015
 
     MIN_DIFFUSION = 0.1
     MAX_DIFFUSION = 1.5

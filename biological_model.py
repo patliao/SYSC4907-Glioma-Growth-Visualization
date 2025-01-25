@@ -2,22 +2,25 @@ import argparse
 import os
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-
+from sklearn.metrics import confusion_matrix
+import matplotlib
+import matplotlib.pyplot as plt
 from nipype.interfaces.fsl import FAST
 from nipype import Workflow, Node
-
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-
-from nilearn.masking import compute_brain_mask
-from nilearn.image import load_img
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons
-from scipy.ndimage import gaussian_filter, convolve
+from scipy.ndimage import gaussian_filter, binary_erosion, binary_dilation, label
 from skimage.transform import resize
 from Application.equation_constant import EquationConstant
 
 # matplotlib.use('TkAgg')
+
+# SPATIAL_RESOLUTION = 1.0 # mm
+# DIFFUSION_RATE = 0.5 # mm/day
+# REACTION_RATE = 0.01 # per day
+# NUM_STEPS = 500 # number of steps in time in the model
+# FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
 class BiologicalModel:
     _instance = None
@@ -47,18 +50,18 @@ class BiologicalModel:
 
     def get_file_paths(self):
         file_paths = {}
-
+    
         print("Please select the MRI files for the following sequences:")
         root = Tk()
         root.withdraw()  # Hide the main Tkinter window
-
+    
         for key in EquationConstant.FILE_KEYS:
             print(f"Select the {key.upper()} file:")
             file_path = self.get_selected_file(key)
             file_paths[key] = file_path
-
-        root.destroy()
+    
         self.file_paths = file_paths
+        root.destroy()
         return file_paths
 
     def get_selected_file(self, key):
@@ -76,24 +79,135 @@ class BiologicalModel:
                 for file_type in EquationConstant.FILE_KEYS:
                     if file_type in file_name.lower():
                         file_paths[file_type] = os.path.join(root, file_name)
-                        
-
+    
         for key in EquationConstant.FILE_KEYS:
             if key not in file_paths:
                 print(f"WARNING: {key} FILE NOT FOUND. PLEASE SELECT FROM FILES.")
                 file_path = self.get_selected_file()
                 file_paths[key] = file_path
-
+    
         self.file_paths = file_paths
         return file_paths
+    
 
+    def compute_metrics(predicted_mask, ground_truth_mask):
+        # Ensure binary masks
+        predicted_mask = (predicted_mask > 0.5).astype(np.uint8)
+        ground_truth_mask = (ground_truth_mask > 0.5).astype(np.uint8)
+        
+        # Flatten masks for easier computation
+        predicted_flat = predicted_mask.flatten()
+        ground_truth_flat = ground_truth_mask.flatten()
+        
+        # Dice Coefficient
+        intersection = np.sum(predicted_flat * ground_truth_flat)
+        dice = (2. * intersection) / (np.sum(predicted_flat) + np.sum(ground_truth_flat))
+        
+        # IoU
+        union = np.sum((predicted_flat + ground_truth_flat) > 0)
+        iou = intersection / union
+        
+        # Pixel Accuracy
+        accuracy = np.sum(predicted_flat == ground_truth_flat) / len(predicted_flat)
+        
+        # Precision and Recall
+        tp = intersection
+        fp = np.sum(predicted_flat) - tp
+        fn = np.sum(ground_truth_flat) - tp
+        precision = tp / (tp + fp + 1e-10)  # Avoid division by zero
+        recall = tp / (tp + fn + 1e-10)
+        
+        # F1-Score
+        f1_score = 2 * (precision * recall) / (precision + recall + 1e-10)
+        
+        return {
+            "Dice Coefficient": dice,
+            "IoU": iou,
+            "Pixel Accuracy": accuracy,
+            "Precision": precision,
+            "Recall": recall,
+            "F1-Score": f1_score
+        }
+
+    # Example usage
+    # predicted_mask = np.random.randint(0, 2, (256, 256))  # Example predicted mask
+    # ground_truth_mask = np.random.randint(0, 2, (256, 256))  # Example ground truth mask
+
+    # metrics = compute_metrics(predicted_mask, ground_truth_mask)
+    # print(metrics)
+
+    def resize_mri_scans(self, mri_data, target_shape=(256, 256, 128)):
+        resized_data = {}
+        for key, scan in mri_data.items():
+            resized_scan = resize(scan, target_shape, order=1, preserve_range=True, anti_aliasing=True)
+            resized_data[key] = resized_scan.astype(scan.dtype)  # Retain the original dtype
+        return resized_data
+    
+    def segment_flair_with_threshold(self, flair_image, smoothing_sigma=1, min_area=50, threshold_factor=2.8):
+        # Step 1: Calculate dynamic threshold based on image statistics
+        mean_intensity = np.mean(flair_image)
+        std_intensity = np.std(flair_image)
+        
+        # Set dynamic threshold
+        threshold = mean_intensity + threshold_factor * std_intensity
+        
+        # Step 2: Segment image using dynamic threshold
+        segmented_image = flair_image > threshold
+        
+        # Step 3: Apply Gaussian filter to smooth the mask
+        smoothed_mask = gaussian_filter(segmented_image.astype(float), sigma=smoothing_sigma)
+        smoothed_mask = smoothed_mask > 0.5  # Convert back to binary
+        
+        # Step 4: Connected Component Labeling
+        labeled_mask, num_labels = label(smoothed_mask)
+        
+        # Step 5: Keep only the largest connected component (assumed to be the main tumor mass)
+        component_sizes = [np.sum(labeled_mask == label_num) for label_num in range(1, num_labels + 1)]
+        largest_label = np.argmax(component_sizes) + 1  # Add 1 since labels start at 1
+        main_tumor_mask = labeled_mask == largest_label
+    
+        # Step 6: Optional - Filter smaller regions near the main tumor
+        # Get the centroid of the largest tumor region
+        coords = np.argwhere(main_tumor_mask)
+        tumor_centroid = np.mean(coords, axis=0)
+        
+        # Retain nearby regions (within a certain distance threshold)
+        distance_threshold = 50  # Adjust as needed based on your image dimensions
+        for label_num in range(1, num_labels + 1):
+            if label_num == largest_label:
+                continue
+            component_coords = np.argwhere(labeled_mask == label_num)
+            if len(component_coords) < min_area:  # Skip tiny regions
+                continue
+            component_centroid = np.mean(component_coords, axis=0)
+            distance = np.linalg.norm(tumor_centroid - component_centroid)
+            if distance < distance_threshold:
+                main_tumor_mask |= labeled_mask == label_num
+
+        # Step 7: Morphological operations (erosion followed by dilation)
+        cleaned_mask = binary_erosion(main_tumor_mask).astype(bool)  # Erosion
+        cleaned_mask = binary_dilation(cleaned_mask).astype(bool)  # Dilation
+
+        return cleaned_mask
+    
     # Step 1: Load MRI Data
     def load_mri_data(self, file_paths):
         return {key: nib.load(file).get_fdata() for key, file in file_paths.items()}
-
+        
     # Step 2: Resize the tumor mask to match the slice shape
     def resize_mask_to_slice(self, tumor_mask, slice_shape, dtype=bool):
         resized_mask = resize(tumor_mask, slice_shape, order=0, preserve_range=True, anti_aliasing=False)
+        flip_type = ""
+        if flip_type == "horizontal":
+            resized_mask = np.flip(resized_mask)
+            resized_mask = np.flip(resized_mask)
+        elif flip_type == "horizontal":
+            resized_mask = np.fliplr(resized_mask)
+        elif flip_type == "both":
+            resized_mask = np.flip(resized_mask)  # Vertical
+            resized_mask = np.fliplr(resized_mask)  # Horizontal
+        else:
+            pass
         return resized_mask.astype(dtype)
 
     # Step 3: Simulate Tumor Growth using Reaction-Diffusion
@@ -112,24 +226,25 @@ class BiologicalModel:
 
         return mask > 0.5  # Threshold to keep mask as binary
 
-
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
-    def interactive_growth_visualization(self, mri_data):
+    def interactive_growth_visualization(self, mri_data, diffusion_map):
         sagittal_slice_idx = mri_data['flair'].shape[0] // 2  # Start at the middle slice along the z-axis (sagittal)
         coronal_slice_idx = mri_data['flair'].shape[1] // 2  # Start at the middle slice along the x-axis (coronal)
         axial_slice_idx = mri_data['flair'].shape[2] // 2
-
-        diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
-        diffusion_map_with_default = np.where(diffusion_map > 0, diffusion_map, self.diffusion_rate)
-
         # Get the initial tumor mask for sagittal and coronal slices
-        initial_tumor_mask_sagittal = mri_data['glistrboost'][sagittal_slice_idx, :, :] > 0
-        initial_tumor_mask_coronal = mri_data['glistrboost'][:, coronal_slice_idx, :] > 0
-        initial_tumor_mask_axial = mri_data['glistrboost'][:, :, axial_slice_idx] > 0
+        # initial_tumor_mask_sagittal = mri_data['glistrboost'][sagittal_slice_idx, :, :] > 0
+        # initial_tumor_mask_coronal = mri_data['glistrboost'][:, coronal_slice_idx, :] > 0
+        # initial_tumor_mask_axial = mri_data['glistrboost'][:, :, axial_slice_idx] > 0
+        segmented_flair_mask = self.segment_flair_with_threshold(mri_data['flair'])
+        initial_tumor_mask_sagittal = segmented_flair_mask[sagittal_slice_idx, :, :]
+        initial_tumor_mask_coronal = segmented_flair_mask[:, coronal_slice_idx, :]
+        initial_tumor_mask_axial = segmented_flair_mask[:, :, axial_slice_idx]
+
         # Resize the tumor masks to match the slice dimensions
-        tumor_mask_resized_sagittal = self.resize_mask_to_slice(initial_tumor_mask_sagittal, mri_data['flair'].shape[1:3])
-        tumor_mask_resized_coronal = self.resize_mask_to_slice(initial_tumor_mask_coronal, mri_data['flair'].shape[1:3])
-        tumor_mask_resized_axial = self.resize_mask_to_slice(initial_tumor_mask_axial, mri_data['flair'].shape[:2])
+        tumor_mask_resized_sagittal = self.resize_mask_to_slice(initial_tumor_mask_sagittal, mri_data['flair'].shape[1:])
+        tumor_mask_resized_coronal = self.resize_mask_to_slice(initial_tumor_mask_coronal, mri_data['flair'].shape[1:])
+        tumor_mask_resized_axial = self.resize_mask_to_slice(initial_tumor_mask_axial, mri_data['flair'].shape[1:])
+
         # Set up the figure and axis
         fig, (ax_sagittal, ax_coronal, ax_axial) = plt.subplots(1, 3, figsize=(14, 7))
         plt.subplots_adjust(left=0.25, bottom=0.35)
@@ -150,8 +265,11 @@ class BiologicalModel:
         scan_rgb_axial = np.clip(scan_rgb_axial / np.max(scan_rgb_axial), 0, 1)
         # Display the initial tumor mask (default to FLAIR)
         scan_img_sagittal = ax_sagittal.imshow(scan_rgb_sagittal, origin='lower')
+        ax_sagittal.set_aspect('equal')  # Maintain aspect ratio
         scan_img_coronal = ax_coronal.imshow(scan_rgb_coronal, origin='lower')
+        ax_coronal.set_aspect('equal')  # Maintain aspect ratio
         scan_img_axial = ax_axial.imshow(scan_rgb_axial, origin='lower')
+        ax_axial.set_aspect('equal')  # Maintain aspect ratio
         # Apply initial red overlay for the tumor region
         tumor_overlay_sagittal = tumor_mask_resized_sagittal.T
         tumor_overlay_coronal = tumor_mask_resized_coronal.T
@@ -188,12 +306,11 @@ class BiologicalModel:
             time_slider.valtext.set_text(f"{calculated_time:.2f} days")
 
         def calculate_time_in_days(step):
-            max_diffusion = max(self.diffusion_rate, EquationConstant.CSF_DIFFUSION_RATE, EquationConstant.GREY_DIFFUSION_RATE, EquationConstant.WHITE_DIFFUSION_RATE)
-            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
+            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * self.diffusion_rate)
             return step * time_step
 
         time_slider.on_changed(update_time_step)
-
+        '''
         # Checkbox for toggling red overlay
         ax_toggle = plt.axes([0.05, 0.5, 0.15, 0.15])
         toggle_button = CheckButtons(ax_toggle, ['Toggle Overlay'], [overlay_on])
@@ -213,6 +330,7 @@ class BiologicalModel:
         ax_toggle.spines['bottom'].set_visible(False)
 
         # Function to update the overlay toggle
+        
         def toggle_overlay(label):
             nonlocal overlay_on
             overlay_on = not overlay_on
@@ -225,16 +343,17 @@ class BiologicalModel:
             current_scan = label.lower()  # Update the scan to the selected one
             update(None)  # Re-render the figure with the new scan type
         radio_button.on_clicked(update_scan_type)
-
+        '''
         # Update function for the sliders and toggle
         def update(val):
             slice_idx = int(slice_slider.val)
+            # slice_idx = min(slice_idx, diffusion_map_with_default.shape[2] - 1)
             time_step = int(time_slider.val)
 
             # Extract the diffusion map slice dynamically
-            diffusion_map_sagittal = diffusion_map_with_default[slice_idx, :, :]  # sagittal 
-            diffusion_map_coronal = diffusion_map_with_default[:, slice_idx, :]  # coronal
-            diffusion_map_axial = diffusion_map_with_default[:, :, slice_idx]  # axial
+            diffusion_map_sagittal = diffusion_map[slice_idx, :, :]  # sagittal 
+            diffusion_map_coronal = diffusion_map[:, slice_idx, :]  # coronal
+            diffusion_map_axial = diffusion_map[:, :, slice_idx]  # axial
 
             def create_brain_mask(mri_image):
                 brain_mask = mri_image > 0
@@ -244,10 +363,15 @@ class BiologicalModel:
             brain_mask_coronal = create_brain_mask(mri_data['flair'][:, slice_idx, :])
             brain_mask_axial = create_brain_mask(mri_data['flair'][:, :, slice_idx])
 
+            # Resize slices to match the target dimensions (e.g., brain mask or tumor mask shape)
+            diffusion_map_sagittal_resized = self.resize_mask_to_slice(diffusion_map_sagittal, brain_mask_sagittal.shape, dtype=float)
+            diffusion_map_coronal_resized = self.resize_mask_to_slice(diffusion_map_coronal, brain_mask_coronal.shape, dtype=float)
+            diffusion_map_axial_resized = self.resize_mask_to_slice(diffusion_map_axial, brain_mask_axial.shape, dtype=float)
+
             # Resize the brain mask to the shape of the current slice
-            # brain_mask_resized_sagittal = self.resize_mask_to_slice(brain_mask_sagittal, mri_data[current_scan].shape[1:])
-            # brain_mask_resized_coronal = self.resize_mask_to_slice(brain_mask_coronal, mri_data[current_scan].shape[1:])
-            # brain_mask_resized_axial = self.resize_mask_to_slice(brain_mask_axial, mri_data[current_scan].shape[:2])
+            brain_mask_resized_sagittal = self.resize_mask_to_slice(brain_mask_sagittal, mri_data[current_scan].shape[1:])
+            brain_mask_resized_coronal = self.resize_mask_to_slice(brain_mask_coronal, mri_data[current_scan].shape[1:])
+            brain_mask_resized_axial = self.resize_mask_to_slice(brain_mask_axial, mri_data[current_scan].shape[:2])
 
             # Update the selected scan slice for both sagittal and coronal
             scan_slice_sagittal = mri_data[current_scan][slice_idx, :, :].T
@@ -261,9 +385,14 @@ class BiologicalModel:
             scan_rgb_coronal = np.clip(scan_rgb_coronal / np.max(scan_rgb_coronal), 0, 1)
             scan_rgb_axial = np.clip(scan_rgb_axial / np.max(scan_rgb_axial), 0, 1)
             # Resize the initial mask to match the new slice and simulate growth
-            tumor_mask_resized_sagittal = self.resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
-            tumor_mask_resized_coronal = self.resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
-            tumor_mask_resized_axial = self.resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
+            # tumor_mask_resized_sagittal = self.resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
+            # tumor_mask_resized_coronal = self.resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
+            # tumor_mask_resized_axial = self.resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
+            
+            tumor_mask_resized_sagittal = self.resize_mask_to_slice(segmented_flair_mask[slice_idx, :, :], mri_data[current_scan].shape[1:3])
+            tumor_mask_resized_coronal = self.resize_mask_to_slice(segmented_flair_mask[:, slice_idx, :], mri_data[current_scan].shape[1:3])
+            tumor_mask_resized_axial = self.resize_mask_to_slice(segmented_flair_mask[:, :, slice_idx], mri_data[current_scan].shape[:2])
+
             grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=diffusion_map_sagittal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_sagittal)
             grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=diffusion_map_coronal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_coronal)
             grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=diffusion_map_axial, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_axial)
@@ -320,36 +449,48 @@ class BiologicalModel:
         return args
 
     def start_equation(self):
-
         mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
-
+        target_shape = (400,400,400)
+        mri_data = self.resize_mri_scans(mri_data, target_shape)
         # Initialize the interactive visualization
-        testFig = self.interactive_growth_visualization(mri_data)
+        initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
+        diffusion_map_with_default = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+        diffusion_map = resize(diffusion_map_with_default, target_shape, order=1, preserve_range=True, anti_aliasing=True)
+        testFig = self.interactive_growth_visualization(mri_data, diffusion_map)
         return testFig
 
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
+
+    def build_diffusion_map_based_on_brain_matter(self, csf_data, grey_matter_data, white_matter_data):
     
-    def get_mask_data(self, t1_scan, mask_type, threshold=0.5):
-        # mask_type must be in "gm", "wm", "whole-brain"
-        image = load_img(t1_scan)
-        mask = compute_brain_mask(image, mask_type=mask_type, threshold=threshold)
-        return mask.get_fdata()
-    
+        diffusion_map = np.zeros_like(grey_matter_data)
+
+        # Weighted sum for diffusion map
+        diffusion_map += csf_data * EquationConstant.CSF_DIFFUSION_RATE
+        diffusion_map += grey_matter_data * EquationConstant.GREY_DIFFUSION_RATE
+        diffusion_map += white_matter_data * EquationConstant.WHITE_DIFFUSION_RATE
+
+        return diffusion_map
+
     def create_diffusion_map(self, t1_image):
+    
         print("Segmenting MRI data (this will take several moments)...")
 
+        # Set up FAST (FSL Automated Segmentation Tool) to segment the T1-weighted image
         fast = Node(FAST(), name="fast")
         fast.inputs.in_files = t1_image
         fast.inputs.output_type = "NIFTI_GZ"
-        fast.inputs.no_bias = True 
+        fast.inputs.no_bias = True  # Disable bias field correction
 
         result = fast.run()
 
+        # Extract the segmented output files for CSF, grey matter, and white matter
         csf_file = result.outputs.partial_volume_files[0]
         grey_matter_file = result.outputs.partial_volume_files[1]
         white_matter_file = result.outputs.partial_volume_files[2]
 
+        # Load the segmented volumes
         csf_img = nib.load(csf_file)
         grey_matter_img = nib.load(grey_matter_file)
         white_matter_img = nib.load(white_matter_file)
@@ -358,33 +499,11 @@ class BiologicalModel:
         grey_matter_data = grey_matter_img.get_fdata()
         white_matter_data = white_matter_img.get_fdata()
 
+        # Build the diffusion map
         diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
-
-        return diffusion_map 
-
-    def build_diffusion_map_based_on_brain_matter(self, csf_data, grey_matter_data, white_matter_data):
-        diffusion_map = np.zeros_like(grey_matter_data)
-
-        # THIS APPROACH DOES WEIGHTED SUMS SO THE DIFFUSION IS THE WEIGHTED AV OF ALL MATTER IN THE VOXEL
-        diffusion_map += csf_data * EquationConstant.CSF_DIFFUSION_RATE
-        diffusion_map += grey_matter_data * EquationConstant.GREY_DIFFUSION_RATE
-        diffusion_map += white_matter_data * EquationConstant.WHITE_DIFFUSION_RATE
-
-        # THIS APPROACH JUST DETERMINES THE ENTIRE VOXEL TO BE WHATEVER MATTER IS THE MOST PREVALENT
-        # for x in range(diffusion_map.shape[0]):
-        #     for y in range(diffusion_map.shape[1]):
-        #         for z in range(diffusion_map.shape[2]):
-        #             MOST_PREVALENT_MATTER_IN_VOXEL = max(csf_data[x, y, z], grey_matter_data[x, y, z], white_matter_data[x, y, z])
-        #             if csf_data[x, y, z] == MOST_PREVALENT_MATTER_IN_VOXEL:
-        #                 diffusion_map[x, y, z] = EquationConstant.CSF_DIFFUSION_RATE
-        #             elif grey_matter_data[x, y, z] == MOST_PREVALENT_MATTER_IN_VOXEL:
-        #                 diffusion_map[x, y, z] = EquationConstant.GREY_DIFFUSION_RATE
-        #             elif white_matter_data[x, y, z] == MOST_PREVALENT_MATTER_IN_VOXEL:
-        #                 diffusion_map[x, y, z] = EquationConstant.WHITE_DIFFUSION_RATE
 
         return diffusion_map
 
-  
 if __name__ == "__main__":
     obj = BiologicalModel.instance()
     args = obj.handle_args()
@@ -399,4 +518,5 @@ if __name__ == "__main__":
     mri_data = obj.load_mri_data(file_paths) # Load the MRI data
 
     # Initialize the interactive visualization
-    obj.interactive_growth_visualization(mri_data)
+    # obj.interactive_growth_visualization(mri_data)
+    obj.start_equation()
