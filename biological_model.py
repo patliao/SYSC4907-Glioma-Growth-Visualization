@@ -3,7 +3,7 @@ import os, sys
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 import platform
-from nipype.interfaces.fsl import FAST
+# from nipype.interfaces.fsl import FAST
 from nipype import Workflow, Node
 import subprocess
 import matplotlib
@@ -287,78 +287,50 @@ class BiologicalModel:
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-    def build_diffusion_map_based_on_brain_matter(self, csf_data, grey_matter_data, white_matter_data):
-    
-        diffusion_map = np.zeros_like(grey_matter_data)
-
-        # Weighted sum for diffusion map
-        diffusion_map += csf_data * EquationConstant.CSF_DIFFUSION_RATE
-        diffusion_map += grey_matter_data * EquationConstant.GREY_DIFFUSION_RATE
-        diffusion_map += white_matter_data * EquationConstant.WHITE_DIFFUSION_RATE
-
-        return diffusion_map
-
     def create_diffusion_map(self, t1_image):
+        threshold = 0.5
     
         print("Segmenting MRI data (this will take several moments)...")
 
-        current_os = platform.system()
-        
-        if current_os == "Windows":
-            t1_img = nib.load(t1_image)
-            t1_data = t1_img.get_fdata()
-            diffusion_map = np.full_like(t1_data, self.diffusion_rate, dtype=np.float32)
+        t1_image_path = r"{}".format(t1_image)
 
-            # t1_image = ants.image_read(t1_image)
+        t1_image = ants.image_read(t1_image_path)
 
-            # # Preprocess the T1-weighted image
-            # t1_corrected = ants.n4_bias_field_correction(t1_image)
-            # t1_normalized = ants.iMath(t1_corrected, "Normalize")
+        t1_corrected = ants.n4_bias_field_correction(t1_image)
 
-            # print("Creating brain mask...")
-            # # Generate a brain mask
-            # brain_mask = ants.get_mask(t1_normalized)
+        t1_normalized = ants.iMath(t1_corrected, "Normalize")
 
-            # print("Performing tissue segmentation...")
-            # # Perform tissue segmentation using Atropos
-            # segmentation = ants.atropos(
-            #     a=t1_normalized,  # Input preprocessed T1 image
-            #     x=brain_mask,     # Mask
-            #     i='kmeans[3]',    # Number of tissue classes (CSF, GM, WM)
-            #     m='[0.1,1x1x1]',  # Reduce smoothing for sharper boundaries
-            #     c='[20,0.01]'     # Increase iterations and tighten convergence
-            # )
+        brain_mask = ants.get_mask(t1_normalized)
 
-            # # Extract CSF, GM, and WM probability maps
-            # print("Extracting tissue probability maps...")
-            # csf_data = segmentation['probabilityimages'][0].numpy()
-            # grey_matter_data = segmentation['probabilityimages'][1].numpy()
-            # white_matter_data = segmentation['probabilityimages'][2].numpy()
-        else:
-            # Set up FAST (FSL Automated Segmentation Tool) to segment the T1-weighted image
-            fast = Node(FAST(), name="fast")
-            fast.inputs.in_files = t1_image
-            fast.inputs.output_type = "NIFTI_GZ"
-            fast.inputs.no_bias = True  # Disable bias field correction
+        refined_mask = ants.iMath(brain_mask, "MD", 2)
 
-            result = fast.run()
+        segmentation = ants.atropos(
+            a=t1_normalized,
+            x=refined_mask,
+            i=f'kmeans[5]',
+            m='[0.6,1x1x1]',
+            c='[10,0.01]'
+        )
 
-            # Get the segmented output files for CSF, grey matter, and white matter
-            csf_file = result.outputs.partial_volume_files[0]
-            grey_matter_file = result.outputs.partial_volume_files[1]
-            white_matter_file = result.outputs.partial_volume_files[2]
+        # Combine clusters for CSF, GM, and WM
+        csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
+        gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
+        wm_map = segmentation['probabilityimages'][4]  # WM
 
-            # Load the segmented volumes
-            csf_img = nib.load(csf_file)
-            grey_matter_img = nib.load(grey_matter_file)
-            white_matter_img = nib.load(white_matter_file)
+        csf_map = ants.threshold_image(csf_map, threshold, 1)
+        gm_map = ants.threshold_image(gm_map, threshold, 1)
+        wm_map = ants.threshold_image(wm_map, threshold, 1)
 
-            csf_data = csf_img.get_fdata()
-            grey_matter_data = grey_matter_img.get_fdata()
-            white_matter_data = white_matter_img.get_fdata()
+        csf_data = csf_map.numpy()
+        gm_data = gm_map.numpy()
+        wm_data = wm_map.numpy()
 
-            # Build the diffusion map
-            diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
+        # Generate the final diffusion map as a weighted sum
+        diffusion_map = np.zeros_like(gm_data)
+
+        diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
+        diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
+        diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
 
         return diffusion_map
     
