@@ -1,8 +1,11 @@
 import argparse
-import os
+import os, sys
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-
+import platform
+from nipype.interfaces.fsl import FAST
+from nipype import Workflow, Node
+import subprocess
 import matplotlib
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -47,70 +50,34 @@ class BiologicalModel:
     def set_reaction_rate(self, reaction_rate):
         self.reaction_rate = reaction_rate
 
-    # def get_file_paths(self):
-    #     file_paths = {}
-    #
-    #     print("Please select the MRI files for the following sequences:")
-    #     root = Tk()
-    #     root.withdraw()  # Hide the main Tkinter window
-    #
-    #     for key in FILE_KEYS:
-    #         print(f"Select the {key.upper()} file:")
-    #         file_path = self.get_selected_file(key)
-    #         file_paths[key] = file_path
-    #
-    #     root.destroy()
-    #     return file_paths
-
-    # def get_selected_file(self, key):
-    #     file_path = askopenfilename(title=f"Select the {key.upper()} file")
-    #     if not file_path:
-    #         print(f"File selection for {key.upper()} was canceled. Exiting.")
-    #         exit()
-    #     return file_path
-
-    # def auto_load_files(self):
-    #     file_paths = {}
-    #     current_directory = os.getcwd()
-    #     for root, dirs, files in os.walk(current_directory):
-    #         for file_name in files:
-    #             for file_type in FILE_KEYS:
-    #                 if file_type in file_name.lower():
-    #                     file_paths[file_type] = os.path.join(root, file_name)
-    #
-    #     for key in FILE_KEYS:
-    #         if key not in file_paths:
-    #             print(f"WARNING: {key} FILE NOT FOUND. PLEASE SELECT FROM FILES.")
-    #             file_path = self.get_selected_file()
-    #             file_paths[key] = file_path
-    #
-    #     return file_paths
-
     # Step 1: Load MRI Data
     def load_mri_data(self, file_paths):
         return {key: nib.load(file).get_fdata() for key, file in file_paths.items()}
 
 
     # Step 2: Resize the tumor mask to match the slice shape
-    def resize_mask_to_slice(self, tumor_mask, slice_shape):
+    def resize_mask_to_slice(self, tumor_mask, slice_shape, dtype=bool):
         resized_mask = resize(tumor_mask, slice_shape, order=0, preserve_range=True, anti_aliasing=False)
-        return resized_mask.astype(bool)
+        return resized_mask.astype(dtype)
 
     # Step 3: Simulate Tumor Growth using Reaction-Diffusion
     def simulate_growth(self, initial_mask, diffusion_rate, reaction_rate, time_steps, brain_mask):
         mask = initial_mask.copy().astype(float)
         brain_mask_resized = self.resize_mask_to_slice(brain_mask, mask.shape)
+        diffusion_map_resized = self.resize_mask_to_slice(diffusion_rate, mask.shape, dtype=float)
+
         for _ in range(time_steps):
             # Apply Gaussian filter for diffusion and add reaction (growth)
-            mask = gaussian_filter(mask, sigma=diffusion_rate)
-            growth = reaction_rate * mask * (1 - mask)
-            mask = mask + (growth * brain_mask_resized) # ensure the growth is kept within the brain region
+            diffused_mask = gaussian_filter(mask, sigma=1.0) * diffusion_map_resized # adjust each voxel according to the diffusion map
+            growth = self.reaction_rate * mask * (1 - mask)
+ 
+            mask = brain_mask_resized * (mask + diffused_mask + growth) # ensures all contributions are restricted to brain region
             mask = np.clip(mask, 0, 1)  # Keep values in range
 
         return mask > 0.5  # Threshold to keep mask as binary
 
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
-    def interactive_growth_visualization(self, mri_data):
+    def interactive_growth_visualization(self, mri_data, diffusion_map):
         sagittal_slice_idx = mri_data['flair'].shape[0] // 2  # Start at the middle slice along the z-axis (sagittal)
         coronal_slice_idx = mri_data['flair'].shape[1] // 2  # Start at the middle slice along the x-axis (coronal)
         axial_slice_idx = mri_data['flair'].shape[2] // 2
@@ -230,6 +197,11 @@ class BiologicalModel:
             brain_mask_coronal = create_brain_mask(mri_data['flair'][:, slice_idx, :])
             brain_mask_axial = create_brain_mask(mri_data['flair'][:, :, slice_idx])
 
+              # Extract the diffusion map slice dynamically
+            diffusion_map_sagittal = diffusion_map[slice_idx, :, :]  # sagittal 
+            diffusion_map_coronal = diffusion_map[:, slice_idx, :]  # coronal
+            diffusion_map_axial = diffusion_map[:, :, slice_idx]  # axial
+
             # Resize the brain mask to the shape of the current slice
             brain_mask_resized_sagittal = self.resize_mask_to_slice(brain_mask_sagittal, mri_data[current_scan].shape[1:])
             brain_mask_resized_coronal = self.resize_mask_to_slice(brain_mask_coronal, mri_data[current_scan].shape[1:])
@@ -250,9 +222,10 @@ class BiologicalModel:
             tumor_mask_resized_sagittal = self.resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
             tumor_mask_resized_coronal = self.resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
             tumor_mask_resized_axial = self.resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
-            grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=self.diffusion_rate, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_sagittal)
-            grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=self.diffusion_rate, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_coronal)
-            grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=self.diffusion_rate, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_axial)
+
+            grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=diffusion_map_sagittal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_sagittal)
+            grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=diffusion_map_coronal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_coronal)
+            grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=diffusion_map_axial, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_axial)
 
             # Apply tumor overlays
             if overlay_on:
@@ -310,24 +283,60 @@ class BiologicalModel:
         mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
 
         # Initialize the interactive visualization
-        testFig = self.interactive_growth_visualization(mri_data)
+        initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
+        diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+        testFig = self.interactive_growth_visualization(mri_data, diffusion_map)
         return testFig
 
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-# if __name__ == "__main__":
-#     obj = BiologicalModel.instance()
-#     args = obj.handle_args()
-#
-#     if args.auto:
-#         print("Generating model with auto-selected files...")
-#         file_paths = obj.auto_load_files()
-#     else:
-#         file_paths = obj.get_file_paths()
-#
-#
-#     mri_data = obj.load_mri_data(file_paths) # Load the MRI data
-#
-#     # Initialize the interactive visualization
-#     obj.interactive_growth_visualization(mri_data)
+    def build_diffusion_map_based_on_brain_matter(self, csf_data, grey_matter_data, white_matter_data):
+    
+        diffusion_map = np.zeros_like(grey_matter_data)
+
+        # Weighted sum for diffusion map
+        diffusion_map += csf_data * EquationConstant.CSF_DIFFUSION_RATE
+        diffusion_map += grey_matter_data * EquationConstant.GREY_DIFFUSION_RATE
+        diffusion_map += white_matter_data * EquationConstant.WHITE_DIFFUSION_RATE
+
+        return diffusion_map
+
+    def create_diffusion_map(self, t1_image):
+    
+        print("Segmenting MRI data (this will take several moments)...")
+
+        current_os = platform.system()
+        
+        if current_os == "Windows":
+            t1_img = nib.load(t1_image)
+            t1_data = t1_img.get_fdata()
+            diffusion_map = np.full_like(t1_data, self.diffusion_rate, dtype=np.float32)
+        else:
+            # Set up FAST (FSL Automated Segmentation Tool) to segment the T1-weighted image
+            fast = Node(FAST(), name="fast")
+            fast.inputs.in_files = t1_image
+            fast.inputs.output_type = "NIFTI_GZ"
+            fast.inputs.no_bias = True  # Disable bias field correction
+
+            result = fast.run()
+
+            # Get the segmented output files for CSF, grey matter, and white matter
+            csf_file = result.outputs.partial_volume_files[0]
+            grey_matter_file = result.outputs.partial_volume_files[1]
+            white_matter_file = result.outputs.partial_volume_files[2]
+
+            # Load the segmented volumes
+            csf_img = nib.load(csf_file)
+            grey_matter_img = nib.load(grey_matter_file)
+            white_matter_img = nib.load(white_matter_file)
+
+            csf_data = csf_img.get_fdata()
+            grey_matter_data = grey_matter_img.get_fdata()
+            white_matter_data = white_matter_img.get_fdata()
+
+            # Build the diffusion map
+            diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
+
+        return diffusion_map
+    
