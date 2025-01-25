@@ -14,14 +14,9 @@ from matplotlib.widgets import Slider, CheckButtons, RadioButtons
 from scipy.ndimage import gaussian_filter
 from skimage.transform import resize
 from Application.equation_constant import EquationConstant
+import ants
 
 matplotlib.use('TkAgg')
-
-# SPATIAL_RESOLUTION = 1.0 # mm
-# DIFFUSION_RATE = 0.5 # mm/day
-# REACTION_RATE = 0.01 # per day
-# NUM_STEPS = 500 # number of steps in time in the model
-# FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
 
 class BiologicalModel:
     _instance = None
@@ -147,7 +142,8 @@ class BiologicalModel:
             time_slider.valtext.set_text(f"{calculated_time:.2f} days")
 
         def calculate_time_in_days(step):
-            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * self.diffusion_rate)
+            max_diffusion = max(self.diffusion_rate, EquationConstant.CSF_DIFFUSION_RATE, EquationConstant.GREY_DIFFUSION_RATE, EquationConstant.WHITE_DIFFUSION_RATE)
+            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
             return step * time_step
 
         time_slider.on_changed(update_time_step)
@@ -309,9 +305,35 @@ class BiologicalModel:
         current_os = platform.system()
         
         if current_os == "Windows":
-            t1_img = nib.load(t1_image)
-            t1_data = t1_img.get_fdata()
-            diffusion_map = np.full_like(t1_data, self.diffusion_rate, dtype=np.float32)
+            # t1_img = nib.load(t1_image)
+            # t1_data = t1_img.get_fdata()
+            # diffusion_map = np.full_like(t1_data, self.diffusion_rate, dtype=np.float32)
+
+            t1_image = ants.image_read(t1_image)
+
+            # Preprocess the T1-weighted image
+            t1_corrected = ants.n4_bias_field_correction(t1_image)
+            t1_normalized = ants.iMath(t1_corrected, "Normalize")
+
+            print("Creating brain mask...")
+            # Generate a brain mask
+            brain_mask = ants.get_mask(t1_normalized)
+
+            print("Performing tissue segmentation...")
+            # Perform tissue segmentation using Atropos
+            segmentation = ants.atropos(
+                a=t1_normalized,  # Input preprocessed T1 image
+                x=brain_mask,     # Mask
+                i='kmeans[3]',    # Number of tissue classes (CSF, GM, WM)
+                m='[0.1,1x1x1]',  # Reduce smoothing for sharper boundaries
+                c='[20,0.01]'     # Increase iterations and tighten convergence
+            )
+
+            # Extract CSF, GM, and WM probability maps
+            print("Extracting tissue probability maps...")
+            csf_data = segmentation['probabilityimages'][0].numpy()
+            grey_matter_data = segmentation['probabilityimages'][1].numpy()
+            white_matter_data = segmentation['probabilityimages'][2].numpy()
         else:
             # Set up FAST (FSL Automated Segmentation Tool) to segment the T1-weighted image
             fast = Node(FAST(), name="fast")
@@ -335,8 +357,8 @@ class BiologicalModel:
             grey_matter_data = grey_matter_img.get_fdata()
             white_matter_data = white_matter_img.get_fdata()
 
-            # Build the diffusion map
-            diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
+        # Build the diffusion map
+        diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
 
         return diffusion_map
     
