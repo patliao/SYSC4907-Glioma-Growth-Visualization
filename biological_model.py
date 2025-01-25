@@ -305,35 +305,35 @@ class BiologicalModel:
         current_os = platform.system()
         
         if current_os == "Windows":
-            # t1_img = nib.load(t1_image)
-            # t1_data = t1_img.get_fdata()
-            # diffusion_map = np.full_like(t1_data, self.diffusion_rate, dtype=np.float32)
+            t1_img = nib.load(t1_image)
+            t1_data = t1_img.get_fdata()
+            diffusion_map = np.full_like(t1_data, self.diffusion_rate, dtype=np.float32)
 
-            t1_image = ants.image_read(t1_image)
+            # t1_image = ants.image_read(t1_image)
 
-            # Preprocess the T1-weighted image
-            t1_corrected = ants.n4_bias_field_correction(t1_image)
-            t1_normalized = ants.iMath(t1_corrected, "Normalize")
+            # # Preprocess the T1-weighted image
+            # t1_corrected = ants.n4_bias_field_correction(t1_image)
+            # t1_normalized = ants.iMath(t1_corrected, "Normalize")
 
-            print("Creating brain mask...")
-            # Generate a brain mask
-            brain_mask = ants.get_mask(t1_normalized)
+            # print("Creating brain mask...")
+            # # Generate a brain mask
+            # brain_mask = ants.get_mask(t1_normalized)
 
-            print("Performing tissue segmentation...")
-            # Perform tissue segmentation using Atropos
-            segmentation = ants.atropos(
-                a=t1_normalized,  # Input preprocessed T1 image
-                x=brain_mask,     # Mask
-                i='kmeans[3]',    # Number of tissue classes (CSF, GM, WM)
-                m='[0.1,1x1x1]',  # Reduce smoothing for sharper boundaries
-                c='[20,0.01]'     # Increase iterations and tighten convergence
-            )
+            # print("Performing tissue segmentation...")
+            # # Perform tissue segmentation using Atropos
+            # segmentation = ants.atropos(
+            #     a=t1_normalized,  # Input preprocessed T1 image
+            #     x=brain_mask,     # Mask
+            #     i='kmeans[3]',    # Number of tissue classes (CSF, GM, WM)
+            #     m='[0.1,1x1x1]',  # Reduce smoothing for sharper boundaries
+            #     c='[20,0.01]'     # Increase iterations and tighten convergence
+            # )
 
-            # Extract CSF, GM, and WM probability maps
-            print("Extracting tissue probability maps...")
-            csf_data = segmentation['probabilityimages'][0].numpy()
-            grey_matter_data = segmentation['probabilityimages'][1].numpy()
-            white_matter_data = segmentation['probabilityimages'][2].numpy()
+            # # Extract CSF, GM, and WM probability maps
+            # print("Extracting tissue probability maps...")
+            # csf_data = segmentation['probabilityimages'][0].numpy()
+            # grey_matter_data = segmentation['probabilityimages'][1].numpy()
+            # white_matter_data = segmentation['probabilityimages'][2].numpy()
         else:
             # Set up FAST (FSL Automated Segmentation Tool) to segment the T1-weighted image
             fast = Node(FAST(), name="fast")
@@ -357,8 +357,8 @@ class BiologicalModel:
             grey_matter_data = grey_matter_img.get_fdata()
             white_matter_data = white_matter_img.get_fdata()
 
-        # Build the diffusion map
-        diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
+            # Build the diffusion map
+            diffusion_map = self.build_diffusion_map_based_on_brain_matter(csf_data, grey_matter_data, white_matter_data)
 
         return diffusion_map
     
