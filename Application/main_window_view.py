@@ -15,6 +15,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         super().__init__()
         self.controller = controller
         self.setupUi(self)
+        self.window().setWindowTitle("Glioma Growth Visualization")
 
         # Default Setting
         self.flair_rb.setChecked(True)   # Flair is selected
@@ -22,16 +23,18 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
         self.disable_by_start(False)
         self.time_slider.setMaximum(EquationConstant.NUM_STEPS)
+        self.set_input_range_label()
 
         # Restrict user input
         self.diffusion_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_DIFFUSION, EquationConstant.MAX_DIFFUSION, 1))
         self.reaction_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_REACTION, EquationConstant.MAX_REACTION, 2))
         # Set user input to default value
-        self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
-        self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
+        self.set_default_input()
+        # self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
+        # self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
         # Default resize
-        self.process_info_label.setMaximumHeight(10)  # Resize processing information label
+        self.process_info_label.setMaximumHeight(20)  # Resize processing information label
         self.equation_widget.setMinimumHeight(300)  # Resize equation widget size
 
         # Assign user actions
@@ -57,7 +60,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
 
-        self.auto_selection()
+        # self.auto_selection()
 
         self.show()
 
@@ -94,16 +97,49 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         return fileName, filePath
 
     def start_equation(self):
-        self.process_info_label.show()
-        QApplication.processEvents()
-        diffusion = self.get_diffusion()
-        reaction = self.get_reaction()
-        self.controller.run_equation_model(diffusion, reaction, self.get_cur_scan())
-        self.disable_by_start(True)
-        self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion} and reaction rate {reaction}")
+        if self.check_files():
+            self.process_info_label.show()
+            QApplication.processEvents()
+            diffusion = self.get_diffusion()
+            reaction = self.get_reaction()
+            self.controller.run_equation_model(diffusion, reaction, self.get_cur_scan())
+            self.disable_by_start(True)
+            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion} and reaction rate {reaction}")
+
+    def check_files(self):
+        # TODO: Simple check, need to be updated!
+        returned_val = False
+        msg = ""
+        if  self.flair_file_label.text() == "":
+            msg = "Missing FLAIR File"
+        elif self.glistrbosst_file_label.text() == "":
+            msg = "Missing GLISTROBOSST File"
+        elif self.t1_file_label.text() == "":
+            msg = "Missing T1 File"
+        elif self.t1gd_file_label.text() == "":
+            msg = "Missing T1GD File"
+        elif self.t2_file_label.text() == "":
+            msg = "Missing T2 File"
+        else:
+            returned_val = True
+        if not returned_val:
+            message_box = QMessageBox()
+            message_box.setText(msg)
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
+        return returned_val
 
     def reset_equation(self):
         self.disable_by_start(False)
+        self.set_input_range_label()
+        self.set_default_input()
+
+    def set_default_input(self):
+        self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
+        self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
+
+    def set_input_range_label(self):
         self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
                                                  f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
 
@@ -149,6 +185,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.disable_input_lineedit(has_start)
         self.disable_file_selection(has_start)
         self.disable_radio_buttons(not has_start)
+        self.toggle_checkbox.setDisabled(not has_start)
         self.disable_sliders(not has_start)
 
     def disable_input_lineedit(self, disable):
