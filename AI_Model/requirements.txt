@@ -1,6 +1,0 @@
-numpy
-nibabel
-scipy
-torch
-torchvision
-matplotlib
