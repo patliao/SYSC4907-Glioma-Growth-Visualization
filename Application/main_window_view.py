@@ -2,8 +2,8 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtGui import QDoubleValidator
 
-from Application.main_window_ui import Ui_mainWindow
-from Application.equation_constant import EquationConstant
+from main_window_ui import Ui_mainWindow
+from equation_constant import EquationConstant
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import os.path
 
