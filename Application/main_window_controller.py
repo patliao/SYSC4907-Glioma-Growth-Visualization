@@ -1,6 +1,7 @@
 
 from biological_model import BiologicalModel
 from Application.main_window_view import MainWindowView
+from PyQt5.QtCore import QThread
 
 
 class MainWindowController:

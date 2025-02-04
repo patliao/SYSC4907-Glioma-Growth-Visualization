@@ -1,6 +1,6 @@
-from PyQt6 import QtWidgets
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
-from PyQt6.QtGui import QDoubleValidator
+from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtGui import QDoubleValidator
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from datetime import datetime
 
@@ -8,7 +8,7 @@ from Application.main_window_ui import Ui_mainWindow
 from Application.equation_constant import EquationConstant
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import os.path
-from PyQt6.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication
 
 class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
     def __init__(self, controller):
@@ -60,7 +60,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
 
-        self.auto_selection()
+        # self.auto_selection()
 
         self.show()
 
