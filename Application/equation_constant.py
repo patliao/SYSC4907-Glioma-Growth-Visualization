@@ -8,7 +8,7 @@ class EquationConstant:
     T2_KEY = 't2'
 
     SPATIAL_RESOLUTION = 1.0  # mm
-    DIFFUSION_RATE = 0.01  # mm/day
+    DIFFUSION_RATE = 0.03  # mm/day
     REACTION_RATE = 0.002  # per day
     NUM_STEPS = 500  # number of steps in time in the model
 
