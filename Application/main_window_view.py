@@ -6,7 +6,9 @@ from main_window_ui import Ui_mainWindow
 from equation_constant import EquationConstant
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-matplotlib.use("Qt5Agg")
+import platform
+if platform.system() == "Darwin":
+    matplotlib.use("Qt5Agg")
 
 import os.path
 

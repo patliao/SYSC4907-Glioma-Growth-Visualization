@@ -5,9 +5,11 @@ from tkinter.filedialog import askopenfilename
 import platform
 from nipype import Workflow, Node
 import subprocess
+import platform
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("Qt5Agg")
+if platform.system() == "Darwin":
+    matplotlib.use("Qt5Agg")
 import nibabel as nib
 import numpy as np
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons
@@ -110,6 +112,7 @@ class BiologicalModel:
  
             mask = brain_mask_resized * (mask + diffused_mask + growth) # ensures all contributions are restricted to brain region
             mask = np.clip(mask, 0, 1)  # Keep values in range
+
 
         return mask > 0.5  # Threshold to keep mask as binary
 
