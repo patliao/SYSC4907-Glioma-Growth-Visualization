@@ -4,9 +4,14 @@ from PyQt5.QtGui import QDoubleValidator
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from datetime import datetime
 
-from Application.main_window_ui import Ui_mainWindow
-from Application.equation_constant import EquationConstant
+from main_window_ui import Ui_mainWindow
+from equation_constant import EquationConstant
+import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+import platform
+if platform.system() == "Darwin":
+    matplotlib.use("Qt5Agg")
+
 import os.path
 from PyQt5.QtWidgets import QApplication
 

@@ -1,17 +1,17 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))) # for importing from biological_model
 
 from biological_model import BiologicalModel
 from Application.main_window_view import MainWindowView
-from PyQt5.QtCore import QThread
 
 
 class MainWindowController:
     _instance = None
 
     def __init__(self):
-        # super().__init__()
         self.equation_model = BiologicalModel.instance()
         self.view = MainWindowView(self)
-        # self.start()  # Start the thread
 
     @classmethod
     def instance(cls):
