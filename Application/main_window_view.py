@@ -60,7 +60,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
 
-        # self.auto_selection()
+        self.auto_selection()
 
         self.show()
 
