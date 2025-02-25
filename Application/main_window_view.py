@@ -1,6 +1,8 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtCore import QThreadPool
+from matplotlib import pyplot as plt
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from datetime import datetime
 
@@ -65,9 +67,15 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
 
+
+        # self.controller.update_ui.connect(self.update_equation_graph)
+
         self.auto_selection()
 
+        # self.thread_pool = QThreadPool.globalInstance()
+
         self.show()
+
 
     def update_equation_default(self):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
@@ -110,6 +118,9 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             self.controller.run_equation_model(diffusion, reaction, self.get_cur_scan())
             self.disable_by_start(True)
             self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion} and reaction rate {reaction}")
+            #
+            # self.controller.set_before_run(diffusion, reaction, self.get_cur_scan())
+            # self.controller.start()
 
     def check_files(self):
         # TODO: Simple check, need to be updated!
@@ -215,12 +226,17 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.slice_slider.setDisabled(disable)
 
     def update_equation_graph(self, fig):
-        # self.canvas = FigureCanvasQTAgg(fig)
-        # self.toolbar = NavigationToolbar2QT(self.canvas, self)
-        # self.equation_layout.addWidget(self.canvas)
+        self.canvas = FigureCanvasQTAgg(fig)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.equation_layout.addWidget(self.canvas)
+
+        # a, (fig[0], fig[1], fig[2]) = plt.subplots(1, 3, figsize=(14, 7))
+        # a.subplots_adjust(left=0.25, bottom=0.35)
+
         if self.equation_layout.count() > 0:
             self.equation_layout.removeWidget(self.equation_layout.itemAt(0).widget())
         self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
+        # self.equation_layout.addWidget(FigureCanvasQTAgg(a))
         self.process_info_label.hide()
 
     def auto_selection(self):

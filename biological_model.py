@@ -1,4 +1,5 @@
 import argparse
+import multiprocessing
 import os, sys
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
@@ -207,58 +208,6 @@ class BiologicalModel:
         self.scan_img_coronal.set_data(self.scan_rgb_coronal)
         self.scan_img_axial.set_data(self.scan_rgb_axial)
 
-        # self.ax_slice_slider = plt.axes([0.25, 0.2, 0.65, 0.03])
-        # self.min_slices = self.get_max_slice_value(mri_data, self.current_scan)
-        # self.slice_slider = Slider(self.ax_slice_slider, 'Slice Index', 0, self.min_slices - 1, valinit=self.sagittal_slice_idx, valstep=1)
-
-        # # Slider for controlling time step
-        # self.ax_time_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
-        # self.time_slider = Slider(self.ax_time_slider, 'Time Step', 0, EquationConstant.NUM_STEPS, valinit=0, valstep=1)
-
-        # def update_time_step(val):
-        #     self.calculated_time = calculate_time_in_days(val)
-        #     self.time_slider.valtext.set_text(f"{calculated_time:.2f} days")
-        #
-
-
-        # self.time_slider.on_changed(update_time_step)
-
-        # # Checkbox for toggling red overlay
-        # self.ax_toggle = plt.axes([0.05, 0.5, 0.15, 0.15])
-        # self.toggle_button = self.CheckButtons(ax_toggle, ['Toggle Overlay'], [overlay_on])
-
-        # # RadioButtons for selecting scan type (FLAIR, T1, T1_Gd, etc.)
-        # self.ax_radio = plt.axes([0.05, 0.8, 0.15, 0.15])
-        # self.radio_button = RadioButtons(self.ax_radio, ['FLAIR', 'T1', 'T1 GD', 'T2'])
-
-        # # Hide the border around the checkbox
-        # for label in self.toggle_button.labels:
-        #     label.set_fontsize(10)
-        #     label.set_color('black')
-
-        # self.ax_toggle.spines['top'].set_visible(False)
-        # self.ax_toggle.spines['right'].set_visible(False)
-        # self.ax_toggle.spines['left'].set_visible(False)
-        # self.ax_toggle.spines['bottom'].set_visible(False)
-
-        # # Function to update the overlay toggle
-        # def toggle_overlay(label):
-        #     nonlocal overlay_on
-        #     overlay_on = not overlay_on
-        #     update(None)  # Re-render the figure with the updated overlay status
-
-        # self.toggle_button.on_clicked(toggle_overlay)
-        #
-        # # Function to update the scan type when radio button is clicked
-        # def update_scan_type(label):
-        #     nonlocal current_scan
-        #     current_scan = label.lower()  # Update the scan to the selected one
-        #     update(None)  # Re-render the figure with the new scan type
-        #
-        # self.radio_button.on_clicked(update_scan_type)
-
-
-
         # # Link the update function to the sliders
         # self.slice_slider.on_changed(update)
         # self.time_slider.on_changed(update)
@@ -268,6 +217,7 @@ class BiologicalModel:
         self.ax_axial.set_facecolor('black')
         self.fig = fig
         return fig
+        # return [self.ax_sagittal, self.ax_coronal, self.ax_axial]
 
         # Update function for the sliders and toggle
     def update(self, slice_idx, time_step, overlay, cur_scan):
@@ -282,7 +232,7 @@ class BiologicalModel:
         self.brain_mask_coronal = create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
         self.brain_mask_axial = create_brain_mask(self.mri_data['flair'][:, :, slice_idx])
 
-         # Resize the brain mask to the shape of the current slice
+        # Resize the brain mask to the shape of the current slice
         self.brain_mask_resized_sagittal = self.resize_mask_to_slice(self.brain_mask_sagittal,
                                                                          self.mri_data[cur_scan].shape[1:])
         self.brain_mask_resized_coronal = self.resize_mask_to_slice(self.brain_mask_coronal,
@@ -308,16 +258,37 @@ class BiologicalModel:
                                                                         self.mri_data[cur_scan].shape[1:])
         self.tumor_mask_resized_axial = self.resize_mask_to_slice(self.mri_data['glistrboost'][:, :, slice_idx] > 0,
                                                                       self.mri_data[cur_scan].shape[:2])
-        self.grown_tumor_mask_sagittal = self.simulate_growth(self.tumor_mask_resized_sagittal,
+
+        try:
+            # Extract the diffusion map slice dynamically
+            self.diffusion_map_sagittal = self.diffusion_map[slice_idx, :, :]  # sagittal
+            self.diffusion_map_coronal = self.diffusion_map[:, slice_idx, :]  # coronal
+            self.diffusion_map_axial = self.diffusion_map[:, :, slice_idx]  # axial
+
+            self.grown_tumor_mask_sagittal = self.simulate_growth(self.tumor_mask_resized_sagittal,
+                                                                  diffusion_rate=self.diffusion_map_sagittal,
+                                                                  reaction_rate=self.reaction_rate,
+                                                                  time_steps=time_step,
+                                                                  brain_mask=self.brain_mask_sagittal)
+            self.grown_tumor_mask_coronal = self.simulate_growth(self.tumor_mask_resized_coronal,
+                                                                 diffusion_rate=self.diffusion_map_coronal,
+                                                                 reaction_rate=self.reaction_rate, time_steps=time_step,
+                                                                 brain_mask=self.brain_mask_coronal)
+            self.grown_tumor_mask_axial = self.simulate_growth(self.tumor_mask_resized_axial,
+                                                               diffusion_rate=self.diffusion_map_axial,
+                                                               reaction_rate=self.reaction_rate, time_steps=time_step,
+                                                               brain_mask=self.brain_mask_axial)
+        except:
+            self.grown_tumor_mask_sagittal = self.simulate_growth(self.tumor_mask_resized_sagittal,
                                                                   diffusion_rate=self.diffusion_rate,
                                                                   reaction_rate=self.reaction_rate,
                                                                   time_steps=time_step,
                                                                   brain_mask=self.brain_mask_sagittal)
-        self.grown_tumor_mask_coronal = self.simulate_growth(self.tumor_mask_resized_coronal,
+            self.grown_tumor_mask_coronal = self.simulate_growth(self.tumor_mask_resized_coronal,
                                                                  diffusion_rate=self.diffusion_rate,
                                                                  reaction_rate=self.reaction_rate, time_steps=time_step,
                                                                  brain_mask=self.brain_mask_coronal)
-        self.grown_tumor_mask_axial = self.simulate_growth(self.tumor_mask_resized_axial,
+            self.grown_tumor_mask_axial = self.simulate_growth(self.tumor_mask_resized_axial,
                                                                diffusion_rate=self.diffusion_rate,
                                                                reaction_rate=self.reaction_rate, time_steps=time_step,
                                                                brain_mask=self.brain_mask_axial)
@@ -344,7 +315,10 @@ class BiologicalModel:
         self.fig.canvas.draw_idle()
 
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
-    def interactive_growth_visualization(self, mri_data, diffusion_map):
+    def interactive_growth_visualization(self, mri_data, diffusion_map=None):
+        if diffusion_map is None:
+            initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
+            diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
         sagittal_slice_idx = mri_data['flair'].shape[0] // 2  # Start at the middle slice along the z-axis (sagittal)
         coronal_slice_idx = mri_data['flair'].shape[1] // 2  # Start at the middle slice along the x-axis (coronal)
         axial_slice_idx = mri_data['flair'].shape[2] // 2
@@ -554,17 +528,27 @@ class BiologicalModel:
         max_slices = self.get_max_slice_value(self.mri_data, cur_scan) - 1
 
         # Initialize the interactive visualization
-        initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
-        diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+        result_queue = multiprocessing.Queue()
+        process = multiprocessing.Process(target=self.create_diffusion_map, args=(self.file_paths["t1"], result_queue))
+        process.start()
+        print("process start")
+        process.join(timeout=120)
+        print("finish diffusion map")
+        map = result_queue.get()
+        # initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
+        # diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+        self.diffusion_map = np.where( map> 0, map, self.diffusion_rate)
 
-        testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan, diffusion_map)
+        testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
         cur_slice_index = self.sagittal_slice_idx
+        print("finish start equation")
         return testFig, cur_slice_index, max_slices
 
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-    def create_diffusion_map(self, t1_image):
+    def create_diffusion_map(self, t1_image, queue):
+
         threshold = 0.5
 
         print("Segmenting MRI data (this will take several moments)...")
@@ -573,13 +557,24 @@ class BiologicalModel:
 
         t1_image = ants.image_read(t1_image_path)
 
+        print("ants.image_read")
+
         t1_corrected = ants.n4_bias_field_correction(t1_image)
+
+        print("ants.n4_bias_field_correction")
 
         t1_normalized = ants.iMath(t1_corrected, "Normalize")
 
+        print("ants.iMath")
+
         brain_mask = ants.get_mask(t1_normalized)
 
+        print("ants.get_mask")
+
+
         refined_mask = ants.iMath(brain_mask, "MD", 2)
+
+        print("another ants.iMath")
 
         segmentation = ants.atropos(
             a=t1_normalized,
@@ -589,18 +584,29 @@ class BiologicalModel:
             c='[10,0.01]'
         )
 
+        print("ants.atropos")
+
         # Combine clusters for CSF, GM, and WM
         csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
         gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
         wm_map = segmentation['probabilityimages'][4]  # WM
 
+        print("after segmentation")
+
+
         csf_map = ants.threshold_image(csf_map, threshold, 1)
         gm_map = ants.threshold_image(gm_map, threshold, 1)
         wm_map = ants.threshold_image(wm_map, threshold, 1)
 
+        print("after threshold_image")
+
+
         csf_data = csf_map.numpy()
         gm_data = gm_map.numpy()
         wm_data = wm_map.numpy()
+
+        print("after map data")
+
 
         # Generate the final diffusion map as a weighted sum
         diffusion_map = np.zeros_like(gm_data)
@@ -609,6 +615,9 @@ class BiologicalModel:
         diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
         diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
 
+        queue.put(diffusion_map)
+        print("ants finish")
+        sys.stdout.flush()
         return diffusion_map
 
 if __name__ == "__main__":
