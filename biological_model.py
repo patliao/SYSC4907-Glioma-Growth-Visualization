@@ -3,11 +3,13 @@ import os, sys
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 import platform
-# from nipype.interfaces.fsl import FAST
 from nipype import Workflow, Node
 import subprocess
+import platform
 import matplotlib
 import matplotlib.pyplot as plt
+if platform.system() == "Darwin":
+    matplotlib.use("Qt5Agg")
 import nibabel as nib
 import numpy as np
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons, Button
