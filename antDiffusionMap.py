@@ -14,10 +14,7 @@ path = sys.argv[1]
 
 print(f"t1 path: {path}")
 
-# print("Segmenting MRI data (this will take several moments)...")
-
-# path = 'C:\\Users\\rui\\Desktop\\SYSC4907\\SYSC4907-Glioma-Growth-Visualization\\TCGA-HT-8111\\TCGA-HT-8111_1998.03.30_t1.nii'
-# path = BiologicalInfo.instance().file_path
+print("Segmenting MRI data (this will take several moments)...")
 
 t1_image_path = r"{}".format(path)
 
@@ -51,7 +48,7 @@ segmentation = ants.atropos(
 
 print("ants.atropos")
 
-        # Combine clusters for CSF, GM, and WM
+# Combine clusters for CSF, GM, and WM
 csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
 gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
 wm_map = segmentation['probabilityimages'][4]  # WM
@@ -79,4 +76,3 @@ diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
 
 np.save('diffusion_map.npy', diffusion_map)
 print("ants finish")
-# print(diffusion_map)
