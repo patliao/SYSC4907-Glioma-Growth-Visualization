@@ -8,16 +8,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))) 
 
 from biological_model import BiologicalModel
 from Application.main_window_view import MainWindowView
-from PyQt5.QtCore import QRunnable, pyqtSignal, QObject, QThread
 
 
 
-class MainWindowController():
+class MainWindowController:
     _instance = None
     # update_ui = pyqtSignal(list)
 
     def __init__(self):
-        # super(MainWindowController, self).__init__()
 
         self.equation_model = BiologicalModel.instance()
         self.view = MainWindowView(self)
@@ -25,23 +23,6 @@ class MainWindowController():
         self.reaction = None
         self.scan = None
         self.has_start = False
-
-    #
-    # def print_thread_functions(self):
-    #     print(f"Total Threads: {len(threading.enumerate())}")
-    #     for thread in threading.enumerate():
-    #         print(f"\nThread: {thread.name}")
-    #         frame = sys._current_frames().get(thread.ident, None)
-    #         if frame:
-    #             stack = traceback.format_stack(frame)
-    #             print("".join(stack))
-
-    # def run(self):
-    #     print("run run")
-    #
-    #     self.print_thread_functions()
-    #     self.run_equation_model(self.diffusion, self.reaction, self.scan)
-    #     self.print_thread_functions()
 
     @classmethod
     def instance(cls):

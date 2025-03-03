@@ -1,14 +1,20 @@
 import argparse
+import ast
 import multiprocessing
 import os, sys
+import pickle
+import subprocess
+from io import StringIO
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 import platform
 from nipype import Workflow, Node
-import subprocess
 import platform
 import matplotlib
 import matplotlib.pyplot as plt
+
+from Application.biologicalInfo import BiologicalInfo
+
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
 import nibabel as nib
@@ -521,6 +527,12 @@ class BiologicalModel:
         args = parser.parse_args()
         return args
 
+    def run_ants_diffusion_map(self, t1_file):
+
+        print("start run another ants")
+        subprocess.run([sys.executable, "antDiffusionMap.py", t1_file], check=True)
+        print("after subprocess run")
+
     def start_equation(self, cur_scan):
 
         self.mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
@@ -528,15 +540,26 @@ class BiologicalModel:
         max_slices = self.get_max_slice_value(self.mri_data, cur_scan) - 1
 
         # Initialize the interactive visualization
-        result_queue = multiprocessing.Queue()
-        process = multiprocessing.Process(target=self.create_diffusion_map, args=(self.file_paths["t1"], result_queue))
+        # result_queue = multiprocessing.Queue()
+
+        BiologicalInfo.instance().file_path = self.file_paths["t1"]
+        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(BiologicalInfo.instance().file_path,))
         process.start()
         print("process start")
-        process.join(timeout=120)
+        # process.join(timeout=180)
+        process.join()
+
         print("finish diffusion map")
-        map = result_queue.get()
-        # initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
-        # diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+
+        BiologicalInfo.instance().diffusion_mask = np.load('diffusion_map.npy')
+
+        if BiologicalInfo.instance().diffusion_mask is not None:
+            print(f"has diffusion mask: {BiologicalInfo.instance().diffusion_mask}")
+        else:
+            print(f"error diffusion mask: {BiologicalInfo.instance().diffusion_mask}")
+
+        map = BiologicalInfo.instance().diffusion_mask
+
         self.diffusion_map = np.where( map> 0, map, self.diffusion_rate)
 
         testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
@@ -615,10 +638,12 @@ class BiologicalModel:
         diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
         diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
 
-        queue.put(diffusion_map)
+        queue.put(diffusion_map.copy())
         print("ants finish")
         sys.stdout.flush()
-        return diffusion_map
+        # del diffusion_map, t1_image, t1_corrected, t1_normalized, brain_mask, refined_mask, segmentation, csf_map, gm_map, wm_map, csf_data, gm_data, wm_data
+        # gc.collect()
+        # return diffusion_map
 
 if __name__ == "__main__":
     obj = BiologicalModel.instance()
