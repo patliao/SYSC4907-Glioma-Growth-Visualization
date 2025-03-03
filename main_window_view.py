@@ -1,8 +1,6 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtGui import QDoubleValidator
-from PyQt5.QtCore import QThreadPool
-from matplotlib import pyplot as plt
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from datetime import datetime
 
@@ -245,11 +243,9 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         """
         try:
             current_file_path = os.path.dirname(__file__)
-            # print("current path: " + str(current_file_path))
-            parent_path = os.path.split(current_file_path)[0]
-            # print("parent path: " + str(parent_path))
-            testing_files_path = os.path.join(parent_path, "TCGA-HT-8111")
-            # print("testing path: " + str(testing_files_path))
+            # parent_path = os.path.split(current_file_path)[0]
+            # testing_files_path = os.path.join(parent_path, "TCGA-HT-8111")
+            testing_files_path = os.path.join(current_file_path, "TCGA-HT-8111")
             for filename in os.listdir(testing_files_path):
                 file_path = os.path.join(testing_files_path, filename)
                 if filename.__contains__("flair.nii"):

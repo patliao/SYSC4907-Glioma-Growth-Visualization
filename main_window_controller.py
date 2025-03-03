@@ -1,13 +1,10 @@
-import subprocess
 import sys
 import os
-import threading
-import traceback
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))) # for importing from biological_model
 
 from biological_model import BiologicalModel
-from Application.main_window_view import MainWindowView
+from main_window_view import MainWindowView
 
 
 

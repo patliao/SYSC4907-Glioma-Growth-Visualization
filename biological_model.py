@@ -1,19 +1,14 @@
 import argparse
-import ast
 import multiprocessing
 import os, sys
-import pickle
 import subprocess
-from io import StringIO
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-import platform
-from nipype import Workflow, Node
 import platform
 import matplotlib
 import matplotlib.pyplot as plt
 
-from Application.biologicalInfo import BiologicalInfo
+from biologicalInfo import BiologicalInfo
 
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
@@ -22,7 +17,7 @@ import numpy as np
 from matplotlib.widgets import Slider, CheckButtons, RadioButtons
 from scipy.ndimage import gaussian_filter
 from skimage.transform import resize
-from Application.equation_constant import EquationConstant
+from equation_constant import EquationConstant
 import ants
 
 matplotlib.use('TkAgg')
