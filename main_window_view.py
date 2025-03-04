@@ -44,6 +44,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
         # Assign user actions
         self.actionSave.triggered.connect(self.save_screen)
+        self.actionSave_Mask.triggered.connect(self.save_mask)
 
         self.flair_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.FLAIR_KEY))
         self.glistrboost_file_button.clicked.connect(
@@ -149,6 +150,9 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.disable_by_start(False)
         self.set_input_range_label()
         self.set_default_input()
+
+    def save_mask(self):
+        self.controller.save_mask(self.slice_slider.value(), self.time_slider.value())
 
     def set_default_input(self):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))

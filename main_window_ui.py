@@ -252,6 +252,10 @@ class Ui_mainWindow(object):
         self.horizontalLayout_10.addWidget(self.time_value_label, 0, QtCore.Qt.AlignRight)
         self.verticalLayout_7.addLayout(self.horizontalLayout_10)
         self.verticalLayout_3.addWidget(self.widget)
+        self.save_info_label = QtWidgets.QLabel(self.centralwidget)
+        self.save_info_label.setText("")
+        self.save_info_label.setObjectName("save_info_label")
+        self.verticalLayout_3.addWidget(self.save_info_label)
         mainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(mainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 854, 22))
@@ -266,7 +270,10 @@ class Ui_mainWindow(object):
         mainWindow.setStatusBar(self.statusbar)
         self.actionSave = QtWidgets.QAction(mainWindow)
         self.actionSave.setObjectName("actionSave")
+        self.actionSave_Mask = QtWidgets.QAction(mainWindow)
+        self.actionSave_Mask.setObjectName("actionSave_Mask")
         self.menuFile.addAction(self.actionSave)
+        self.menuFile.addAction(self.actionSave_Mask)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
 
@@ -296,6 +303,7 @@ class Ui_mainWindow(object):
         self.menuHelp.setTitle(_translate("mainWindow", "Help"))
         self.menuFile.setTitle(_translate("mainWindow", "File"))
         self.actionSave.setText(_translate("mainWindow", "Save"))
+        self.actionSave_Mask.setText(_translate("mainWindow", "Save Mask"))
 
 
 if __name__ == "__main__":

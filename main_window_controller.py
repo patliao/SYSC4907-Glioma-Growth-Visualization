@@ -48,3 +48,6 @@ class MainWindowController:
         self.equation_model.update(slice_i, time_i, is_overlay, scan)
         time_day = int(self.equation_model.time_in_days(time_i))
         self.view.update_slider_value_labels(time_day)
+
+    def save_mask(self, s, t):
+        self.equation_model.save_current_mask(s, t)

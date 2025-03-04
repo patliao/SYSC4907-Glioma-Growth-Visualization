@@ -220,18 +220,20 @@ class BiologicalModel:
         return fig
         # return [self.ax_sagittal, self.ax_coronal, self.ax_axial]
 
+    def create_brain_mask(self, mri_image):
+        brain_mask = mri_image > 0
+        return brain_mask
+
         # Update function for the sliders and toggle
     def update(self, slice_idx, time_step, overlay, cur_scan):
         # slice_idx = int(self.slice_slider.val)
         # time_step = int(self.time_slider.val)
 
-        def create_brain_mask(mri_image):
-            brain_mask = mri_image > 0
-            return brain_mask
 
-        self.brain_mask_sagittal = create_brain_mask(self.mri_data['flair'][slice_idx, :, :])
-        self.brain_mask_coronal = create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
-        self.brain_mask_axial = create_brain_mask(self.mri_data['flair'][:, :, slice_idx])
+
+        self.brain_mask_sagittal = self.create_brain_mask(self.mri_data['flair'][slice_idx, :, :])
+        self.brain_mask_coronal = self.create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
+        self.brain_mask_axial = self.create_brain_mask(self.mri_data['flair'][:, :, slice_idx])
 
         # Resize the brain mask to the shape of the current slice
         self.brain_mask_resized_sagittal = self.resize_mask_to_slice(self.brain_mask_sagittal,
@@ -316,191 +318,191 @@ class BiologicalModel:
         self.fig.canvas.draw_idle()
 
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
-    def interactive_growth_visualization(self, mri_data, diffusion_map=None):
-        if diffusion_map is None:
-            initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
-            diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
-        sagittal_slice_idx = mri_data['flair'].shape[0] // 2  # Start at the middle slice along the z-axis (sagittal)
-        coronal_slice_idx = mri_data['flair'].shape[1] // 2  # Start at the middle slice along the x-axis (coronal)
-        axial_slice_idx = mri_data['flair'].shape[2] // 2
-        # Get the initial tumor mask for sagittal and coronal slices
-        initial_tumor_mask_sagittal = mri_data['glistrboost'][sagittal_slice_idx, :, :] > 0
-        initial_tumor_mask_coronal = mri_data['glistrboost'][:, coronal_slice_idx, :] > 0
-        initial_tumor_mask_axial = mri_data['glistrboost'][:, :, axial_slice_idx] > 0
-        # Resize the tumor masks to match the slice dimensions
-        tumor_mask_resized_sagittal = self.resize_mask_to_slice(initial_tumor_mask_sagittal, mri_data['flair'].shape[1:3])
-        tumor_mask_resized_coronal = self.resize_mask_to_slice(initial_tumor_mask_coronal, mri_data['flair'].shape[1:3])
-        tumor_mask_resized_axial = self.resize_mask_to_slice(initial_tumor_mask_axial, mri_data['flair'].shape[:2])
-        # Set up the figure and axis
-        fig, (ax_sagittal, ax_coronal, ax_axial) = plt.subplots(1, 3, figsize=(14, 7))
-        plt.subplots_adjust(left=0.25, bottom=0.35)
-
-        # Initial scan setup for both figures
-        current_scan = 'flair'
-        scan_slice_sagittal = mri_data[current_scan][sagittal_slice_idx, :, :].T  # sagittal slice (z-axis)
-        scan_slice_coronal = mri_data[current_scan][:, coronal_slice_idx, :].T  # coronal slice (x-axis)
-        scan_slice_axial = mri_data[current_scan][:, :, axial_slice_idx].T
-
-        scan_rgb_sagittal = np.repeat(scan_slice_sagittal[:, :, np.newaxis], 3, axis=2)
-        scan_rgb_coronal = np.repeat(scan_slice_coronal[:, :, np.newaxis], 3, axis=2)
-        scan_rgb_axial = np.repeat(scan_slice_axial[:, :, np.newaxis], 3, axis=2)
-
-        # Normalize scan_rgb to ensure values are within [0, 1]
-        scan_rgb_sagittal = np.clip(scan_rgb_sagittal / np.max(scan_rgb_sagittal), 0, 1)
-        scan_rgb_coronal = np.clip(scan_rgb_coronal / np.max(scan_rgb_coronal), 0, 1)
-        scan_rgb_axial = np.clip(scan_rgb_axial / np.max(scan_rgb_axial), 0, 1)
-
-        # Display the initial tumor mask (default to FLAIR)
-        scan_img_sagittal = ax_sagittal.imshow(scan_rgb_sagittal, origin='lower')
-        scan_img_coronal = ax_coronal.imshow(scan_rgb_coronal, origin='lower')
-        scan_img_axial = ax_axial.imshow(scan_rgb_axial, origin='lower')
-        # Apply initial red overlay for the tumor region
-        tumor_overlay_sagittal = tumor_mask_resized_sagittal.T
-        tumor_overlay_coronal = tumor_mask_resized_coronal.T
-        tumor_overlay_axial= tumor_mask_resized_axial.T
-        overlay_on = True  # Control variable for overlay toggle
-
-        # Apply tumor overlays
-        scan_rgb_sagittal[tumor_overlay_sagittal, 0] = 1
-        scan_rgb_sagittal[tumor_overlay_sagittal, 1] = 0
-        scan_rgb_sagittal[tumor_overlay_sagittal, 2] = 0
-
-        scan_rgb_coronal[tumor_overlay_coronal, 0] = 1
-        scan_rgb_coronal[tumor_overlay_coronal, 1] = 0
-        scan_rgb_coronal[tumor_overlay_coronal, 2] = 0
-
-        scan_rgb_axial[tumor_overlay_axial, 0] = 1
-        scan_rgb_axial[tumor_overlay_axial, 1] = 0
-        scan_rgb_axial[tumor_overlay_axial, 2] = 0
-
-        scan_img_sagittal.set_data(scan_rgb_sagittal)
-        scan_img_coronal.set_data(scan_rgb_coronal)
-        scan_img_axial.set_data(scan_rgb_axial)
-
-        ax_slice_slider = plt.axes([0.25, 0.2, 0.65, 0.03])
-        min_slices = self.get_max_slice_value(mri_data, current_scan)
-        slice_slider = Slider(ax_slice_slider, 'Slice Index', 0, min_slices - 1, valinit=sagittal_slice_idx, valstep=1)
-
-        # Slider for controlling time step
-        ax_time_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
-        time_slider = Slider(ax_time_slider, 'Time Step', 0, EquationConstant.NUM_STEPS, valinit=0, valstep=1)
-
-        def update_time_step(val):
-            calculated_time = calculate_time_in_days(val)
-            time_slider.valtext.set_text(f"{calculated_time:.2f} days")
-
-        def calculate_time_in_days(step):
-            max_diffusion = max(self.diffusion_rate, EquationConstant.CSF_DIFFUSION_RATE, EquationConstant.GREY_DIFFUSION_RATE, EquationConstant.WHITE_DIFFUSION_RATE)
-            time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
-            return step * time_step
-
-        time_slider.on_changed(update_time_step)
-
-        # Checkbox for toggling red overlay
-        ax_toggle = plt.axes([0.05, 0.5, 0.15, 0.15])
-        toggle_button = CheckButtons(ax_toggle, ['Toggle Overlay'], [overlay_on])
-
-        # RadioButtons for selecting scan type (FLAIR, T1, T1_Gd, etc.)
-        ax_radio = plt.axes([0.05, 0.8, 0.15, 0.15])
-        radio_button = RadioButtons(ax_radio, ['FLAIR', 'T1', 'T1 GD', 'T2'])
-
-        # Hide the border around the checkbox
-        for label in toggle_button.labels:
-            label.set_fontsize(10)
-            label.set_color('black')
-
-        ax_toggle.spines['top'].set_visible(False)
-        ax_toggle.spines['right'].set_visible(False)
-        ax_toggle.spines['left'].set_visible(False)
-        ax_toggle.spines['bottom'].set_visible(False)
-
-        # Function to update the overlay toggle
-        def toggle_overlay(label):
-            nonlocal overlay_on
-            overlay_on = not overlay_on
-            update(None)  # Re-render the figure with the updated overlay status
-        toggle_button.on_clicked(toggle_overlay)
-
-        # Function to update the scan type when radio button is clicked
-        def update_scan_type(label):
-            nonlocal current_scan
-            current_scan = label.lower()  # Update the scan to the selected one
-            update(None)  # Re-render the figure with the new scan type
-        radio_button.on_clicked(update_scan_type)
-
-        # Update function for the sliders and toggle
-        def update(val):
-            slice_idx = int(slice_slider.val)
-            time_step = int(time_slider.val)
-
-            def create_brain_mask(mri_image):
-                brain_mask = mri_image > 0
-                return brain_mask
-
-            brain_mask_sagittal = create_brain_mask(mri_data['flair'][slice_idx, :, :])
-            brain_mask_coronal = create_brain_mask(mri_data['flair'][:, slice_idx, :])
-            brain_mask_axial = create_brain_mask(mri_data['flair'][:, :, slice_idx])
-
-              # Extract the diffusion map slice dynamically
-            diffusion_map_sagittal = diffusion_map[slice_idx, :, :]  # sagittal
-            diffusion_map_coronal = diffusion_map[:, slice_idx, :]  # coronal
-            diffusion_map_axial = diffusion_map[:, :, slice_idx]  # axial
-
-            # Resize the brain mask to the shape of the current slice
-            brain_mask_resized_sagittal = self.resize_mask_to_slice(brain_mask_sagittal, mri_data[current_scan].shape[1:])
-            brain_mask_resized_coronal = self.resize_mask_to_slice(brain_mask_coronal, mri_data[current_scan].shape[1:])
-            brain_mask_resized_axial = self.resize_mask_to_slice(brain_mask_axial, mri_data[current_scan].shape[:2])
-
-            # Update the selected scan slice for both sagittal and coronal
-            scan_slice_sagittal = mri_data[current_scan][slice_idx, :, :].T
-            scan_slice_coronal = mri_data[current_scan][:, slice_idx, :].T
-            scan_slice_axial = mri_data[current_scan][:, :, slice_idx].T
-            scan_rgb_sagittal = np.repeat(scan_slice_sagittal[:, :, np.newaxis], 3, axis=2)
-            scan_rgb_coronal = np.repeat(scan_slice_coronal[:, :, np.newaxis], 3, axis=2)
-            scan_rgb_axial = np.repeat(scan_slice_axial[:, :, np.newaxis], 3, axis=2)
-            # Normalize scan_rgb to ensure values are within [0, 1]
-            scan_rgb_sagittal = np.clip(scan_rgb_sagittal / np.max(scan_rgb_sagittal), 0, 1)
-            scan_rgb_coronal = np.clip(scan_rgb_coronal / np.max(scan_rgb_coronal), 0, 1)
-            scan_rgb_axial = np.clip(scan_rgb_axial / np.max(scan_rgb_axial), 0, 1)
-            # Resize the initial mask to match the new slice and simulate growth
-            tumor_mask_resized_sagittal = self.resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
-            tumor_mask_resized_coronal = self.resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
-            tumor_mask_resized_axial = self.resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
-
-            grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=diffusion_map_sagittal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_sagittal)
-            grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=diffusion_map_coronal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_coronal)
-            grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=diffusion_map_axial, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_axial)
-
-            # Apply tumor overlays
-            if overlay_on:
-                scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 0] = 1
-                scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 1] = 0
-                scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 2] = 0
-
-                scan_rgb_coronal[grown_tumor_mask_coronal.T, 0] = 1
-                scan_rgb_coronal[grown_tumor_mask_coronal.T, 1] = 0
-                scan_rgb_coronal[grown_tumor_mask_coronal.T, 2] = 0
-
-                scan_rgb_axial[grown_tumor_mask_axial.T, 0] = 1
-                scan_rgb_axial[grown_tumor_mask_axial.T, 1] = 0
-                scan_rgb_axial[grown_tumor_mask_axial.T, 2] = 0
-
-            # Update the images with the new slice and tumor mask
-            scan_img_sagittal.set_data(scan_rgb_sagittal)
-            scan_img_coronal.set_data(scan_rgb_coronal)
-            scan_img_axial.set_data(scan_rgb_axial)
-
-            fig.canvas.draw_idle()
-
-        # Link the update function to the sliders
-        slice_slider.on_changed(update)
-        time_slider.on_changed(update)
-        # Set the background color of the figure and axes
-        ax_sagittal.set_facecolor('black')
-        ax_coronal.set_facecolor('black')
-        ax_axial.set_facecolor('black')
-        plt.show()
-        return fig
+    # def interactive_growth_visualization(self, mri_data, diffusion_map=None):
+    #     if diffusion_map is None:
+    #         initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
+    #         diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+    #     sagittal_slice_idx = mri_data['flair'].shape[0] // 2  # Start at the middle slice along the z-axis (sagittal)
+    #     coronal_slice_idx = mri_data['flair'].shape[1] // 2  # Start at the middle slice along the x-axis (coronal)
+    #     axial_slice_idx = mri_data['flair'].shape[2] // 2
+    #     # Get the initial tumor mask for sagittal and coronal slices
+    #     initial_tumor_mask_sagittal = mri_data['glistrboost'][sagittal_slice_idx, :, :] > 0
+    #     initial_tumor_mask_coronal = mri_data['glistrboost'][:, coronal_slice_idx, :] > 0
+    #     initial_tumor_mask_axial = mri_data['glistrboost'][:, :, axial_slice_idx] > 0
+    #     # Resize the tumor masks to match the slice dimensions
+    #     tumor_mask_resized_sagittal = self.resize_mask_to_slice(initial_tumor_mask_sagittal, mri_data['flair'].shape[1:3])
+    #     tumor_mask_resized_coronal = self.resize_mask_to_slice(initial_tumor_mask_coronal, mri_data['flair'].shape[1:3])
+    #     tumor_mask_resized_axial = self.resize_mask_to_slice(initial_tumor_mask_axial, mri_data['flair'].shape[:2])
+    #     # Set up the figure and axis
+    #     fig, (ax_sagittal, ax_coronal, ax_axial) = plt.subplots(1, 3, figsize=(14, 7))
+    #     plt.subplots_adjust(left=0.25, bottom=0.35)
+    #
+    #     # Initial scan setup for both figures
+    #     current_scan = 'flair'
+    #     scan_slice_sagittal = mri_data[current_scan][sagittal_slice_idx, :, :].T  # sagittal slice (z-axis)
+    #     scan_slice_coronal = mri_data[current_scan][:, coronal_slice_idx, :].T  # coronal slice (x-axis)
+    #     scan_slice_axial = mri_data[current_scan][:, :, axial_slice_idx].T
+    #
+    #     scan_rgb_sagittal = np.repeat(scan_slice_sagittal[:, :, np.newaxis], 3, axis=2)
+    #     scan_rgb_coronal = np.repeat(scan_slice_coronal[:, :, np.newaxis], 3, axis=2)
+    #     scan_rgb_axial = np.repeat(scan_slice_axial[:, :, np.newaxis], 3, axis=2)
+    #
+    #     # Normalize scan_rgb to ensure values are within [0, 1]
+    #     scan_rgb_sagittal = np.clip(scan_rgb_sagittal / np.max(scan_rgb_sagittal), 0, 1)
+    #     scan_rgb_coronal = np.clip(scan_rgb_coronal / np.max(scan_rgb_coronal), 0, 1)
+    #     scan_rgb_axial = np.clip(scan_rgb_axial / np.max(scan_rgb_axial), 0, 1)
+    #
+    #     # Display the initial tumor mask (default to FLAIR)
+    #     scan_img_sagittal = ax_sagittal.imshow(scan_rgb_sagittal, origin='lower')
+    #     scan_img_coronal = ax_coronal.imshow(scan_rgb_coronal, origin='lower')
+    #     scan_img_axial = ax_axial.imshow(scan_rgb_axial, origin='lower')
+    #     # Apply initial red overlay for the tumor region
+    #     tumor_overlay_sagittal = tumor_mask_resized_sagittal.T
+    #     tumor_overlay_coronal = tumor_mask_resized_coronal.T
+    #     tumor_overlay_axial= tumor_mask_resized_axial.T
+    #     overlay_on = True  # Control variable for overlay toggle
+    #
+    #     # Apply tumor overlays
+    #     scan_rgb_sagittal[tumor_overlay_sagittal, 0] = 1
+    #     scan_rgb_sagittal[tumor_overlay_sagittal, 1] = 0
+    #     scan_rgb_sagittal[tumor_overlay_sagittal, 2] = 0
+    #
+    #     scan_rgb_coronal[tumor_overlay_coronal, 0] = 1
+    #     scan_rgb_coronal[tumor_overlay_coronal, 1] = 0
+    #     scan_rgb_coronal[tumor_overlay_coronal, 2] = 0
+    #
+    #     scan_rgb_axial[tumor_overlay_axial, 0] = 1
+    #     scan_rgb_axial[tumor_overlay_axial, 1] = 0
+    #     scan_rgb_axial[tumor_overlay_axial, 2] = 0
+    #
+    #     scan_img_sagittal.set_data(scan_rgb_sagittal)
+    #     scan_img_coronal.set_data(scan_rgb_coronal)
+    #     scan_img_axial.set_data(scan_rgb_axial)
+    #
+    #     ax_slice_slider = plt.axes([0.25, 0.2, 0.65, 0.03])
+    #     min_slices = self.get_max_slice_value(mri_data, current_scan)
+    #     slice_slider = Slider(ax_slice_slider, 'Slice Index', 0, min_slices - 1, valinit=sagittal_slice_idx, valstep=1)
+    #
+    #     # Slider for controlling time step
+    #     ax_time_slider = plt.axes([0.25, 0.1, 0.65, 0.03])
+    #     time_slider = Slider(ax_time_slider, 'Time Step', 0, EquationConstant.NUM_STEPS, valinit=0, valstep=1)
+    #
+    #     def update_time_step(val):
+    #         calculated_time = calculate_time_in_days(val)
+    #         time_slider.valtext.set_text(f"{calculated_time:.2f} days")
+    #
+    #     def calculate_time_in_days(step):
+    #         max_diffusion = max(self.diffusion_rate, EquationConstant.CSF_DIFFUSION_RATE, EquationConstant.GREY_DIFFUSION_RATE, EquationConstant.WHITE_DIFFUSION_RATE)
+    #         time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
+    #         return step * time_step
+    #
+    #     time_slider.on_changed(update_time_step)
+    #
+    #     # Checkbox for toggling red overlay
+    #     ax_toggle = plt.axes([0.05, 0.5, 0.15, 0.15])
+    #     toggle_button = CheckButtons(ax_toggle, ['Toggle Overlay'], [overlay_on])
+    #
+    #     # RadioButtons for selecting scan type (FLAIR, T1, T1_Gd, etc.)
+    #     ax_radio = plt.axes([0.05, 0.8, 0.15, 0.15])
+    #     radio_button = RadioButtons(ax_radio, ['FLAIR', 'T1', 'T1 GD', 'T2'])
+    #
+    #     # Hide the border around the checkbox
+    #     for label in toggle_button.labels:
+    #         label.set_fontsize(10)
+    #         label.set_color('black')
+    #
+    #     ax_toggle.spines['top'].set_visible(False)
+    #     ax_toggle.spines['right'].set_visible(False)
+    #     ax_toggle.spines['left'].set_visible(False)
+    #     ax_toggle.spines['bottom'].set_visible(False)
+    #
+    #     # Function to update the overlay toggle
+    #     def toggle_overlay(label):
+    #         nonlocal overlay_on
+    #         overlay_on = not overlay_on
+    #         update(None)  # Re-render the figure with the updated overlay status
+    #     toggle_button.on_clicked(toggle_overlay)
+    #
+    #     # Function to update the scan type when radio button is clicked
+    #     def update_scan_type(label):
+    #         nonlocal current_scan
+    #         current_scan = label.lower()  # Update the scan to the selected one
+    #         update(None)  # Re-render the figure with the new scan type
+    #     radio_button.on_clicked(update_scan_type)
+    #
+    #     # Update function for the sliders and toggle
+    #     def update(val):
+    #         slice_idx = int(slice_slider.val)
+    #         time_step = int(time_slider.val)
+    #
+    #         def create_brain_mask(mri_image):
+    #             brain_mask = mri_image > 0
+    #             return brain_mask
+    #
+    #         brain_mask_sagittal = create_brain_mask(mri_data['flair'][slice_idx, :, :])
+    #         brain_mask_coronal = create_brain_mask(mri_data['flair'][:, slice_idx, :])
+    #         brain_mask_axial = create_brain_mask(mri_data['flair'][:, :, slice_idx])
+    #
+    #           # Extract the diffusion map slice dynamically
+    #         diffusion_map_sagittal = diffusion_map[slice_idx, :, :]  # sagittal
+    #         diffusion_map_coronal = diffusion_map[:, slice_idx, :]  # coronal
+    #         diffusion_map_axial = diffusion_map[:, :, slice_idx]  # axial
+    #
+    #         # Resize the brain mask to the shape of the current slice
+    #         brain_mask_resized_sagittal = self.resize_mask_to_slice(brain_mask_sagittal, mri_data[current_scan].shape[1:])
+    #         brain_mask_resized_coronal = self.resize_mask_to_slice(brain_mask_coronal, mri_data[current_scan].shape[1:])
+    #         brain_mask_resized_axial = self.resize_mask_to_slice(brain_mask_axial, mri_data[current_scan].shape[:2])
+    #
+    #         # Update the selected scan slice for both sagittal and coronal
+    #         scan_slice_sagittal = mri_data[current_scan][slice_idx, :, :].T
+    #         scan_slice_coronal = mri_data[current_scan][:, slice_idx, :].T
+    #         scan_slice_axial = mri_data[current_scan][:, :, slice_idx].T
+    #         scan_rgb_sagittal = np.repeat(scan_slice_sagittal[:, :, np.newaxis], 3, axis=2)
+    #         scan_rgb_coronal = np.repeat(scan_slice_coronal[:, :, np.newaxis], 3, axis=2)
+    #         scan_rgb_axial = np.repeat(scan_slice_axial[:, :, np.newaxis], 3, axis=2)
+    #         # Normalize scan_rgb to ensure values are within [0, 1]
+    #         scan_rgb_sagittal = np.clip(scan_rgb_sagittal / np.max(scan_rgb_sagittal), 0, 1)
+    #         scan_rgb_coronal = np.clip(scan_rgb_coronal / np.max(scan_rgb_coronal), 0, 1)
+    #         scan_rgb_axial = np.clip(scan_rgb_axial / np.max(scan_rgb_axial), 0, 1)
+    #         # Resize the initial mask to match the new slice and simulate growth
+    #         tumor_mask_resized_sagittal = self.resize_mask_to_slice(mri_data['glistrboost'][slice_idx, :, :] > 0, mri_data[current_scan].shape[1:])
+    #         tumor_mask_resized_coronal = self.resize_mask_to_slice(mri_data['glistrboost'][:, slice_idx, :] > 0, mri_data[current_scan].shape[1:])
+    #         tumor_mask_resized_axial = self.resize_mask_to_slice(mri_data['glistrboost'][:, :, slice_idx] > 0, mri_data[current_scan].shape[:2])
+    #
+    #         grown_tumor_mask_sagittal = self.simulate_growth(tumor_mask_resized_sagittal, diffusion_rate=diffusion_map_sagittal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_sagittal)
+    #         grown_tumor_mask_coronal = self.simulate_growth(tumor_mask_resized_coronal, diffusion_rate=diffusion_map_coronal, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_coronal)
+    #         grown_tumor_mask_axial = self.simulate_growth(tumor_mask_resized_axial, diffusion_rate=diffusion_map_axial, reaction_rate=self.reaction_rate, time_steps=time_step, brain_mask=brain_mask_axial)
+    #
+    #         # Apply tumor overlays
+    #         if overlay_on:
+    #             scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 0] = 1
+    #             scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 1] = 0
+    #             scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 2] = 0
+    #
+    #             scan_rgb_coronal[grown_tumor_mask_coronal.T, 0] = 1
+    #             scan_rgb_coronal[grown_tumor_mask_coronal.T, 1] = 0
+    #             scan_rgb_coronal[grown_tumor_mask_coronal.T, 2] = 0
+    #
+    #             scan_rgb_axial[grown_tumor_mask_axial.T, 0] = 1
+    #             scan_rgb_axial[grown_tumor_mask_axial.T, 1] = 0
+    #             scan_rgb_axial[grown_tumor_mask_axial.T, 2] = 0
+    #
+    #         # Update the images with the new slice and tumor mask
+    #         scan_img_sagittal.set_data(scan_rgb_sagittal)
+    #         scan_img_coronal.set_data(scan_rgb_coronal)
+    #         scan_img_axial.set_data(scan_rgb_axial)
+    #
+    #         fig.canvas.draw_idle()
+    #
+    #     # Link the update function to the sliders
+    #     slice_slider.on_changed(update)
+    #     time_slider.on_changed(update)
+    #     # Set the background color of the figure and axes
+    #     ax_sagittal.set_facecolor('black')
+    #     ax_coronal.set_facecolor('black')
+    #     ax_axial.set_facecolor('black')
+    #     plt.show()
+    #     return fig
 
     def get_max_slice_value(self, mri_data, current_scan):
         mri_shape = mri_data[current_scan].shape
@@ -639,6 +641,83 @@ class BiologicalModel:
         # del diffusion_map, t1_image, t1_corrected, t1_normalized, brain_mask, refined_mask, segmentation, csf_map, gm_map, wm_map, csf_data, gm_data, wm_data
         # gc.collect()
         # return diffusion_map
+
+    def save_tumor_mask_as_nii(self, tumor_mask, reference_nii_path, output_path="grown_tumor_mask.nii"):
+        """Save the grown tumor mask as a .nii file using the affine matrix from the reference image."""
+        # Debugging: Print mask properties before saving
+        print("\nDebugging Mask Properties:")
+        print("Mask shape:", tumor_mask.shape)
+        print("Mask unique values:", np.unique(tumor_mask))
+        print("Mask non-zero voxels:", np.count_nonzero(tumor_mask))
+
+        # Load the reference NIfTI image to get its affine matrix
+        reference_img = nib.load(reference_nii_path)
+        print("\nDebugging Reference Image Properties:")
+        print("Reference image shape:", reference_img.shape)
+        print("Reference affine matrix:\n", reference_img.affine)
+
+        # Ensure the mask is in the correct shape and data type
+        if tumor_mask.shape != reference_img.shape:
+            raise ValueError(f"Mask shape {tumor_mask.shape} does not match reference shape {reference_img.shape}.")
+
+        # Convert the binary mask to uint8 (0 and 1)
+        tumor_mask_int = tumor_mask.astype(np.uint8)
+
+        # Debugging: Print the mask data type and values after conversion
+        print("\nDebugging Mask After Conversion:")
+        print("Mask data type:", tumor_mask_int.dtype)
+        print("Mask unique values after conversion:", np.unique(tumor_mask_int))
+
+        # Create and save the NIfTI image
+        tumor_img = nib.Nifti1Image(tumor_mask_int, reference_img.affine)
+        nib.save(tumor_img, output_path)
+        print(f"\nGrown tumor mask saved as {output_path}")
+
+        # Debugging: Load the saved mask and verify its properties
+        saved_mask_img = nib.load(output_path)
+        print("\nDebugging Saved Mask Properties:")
+        print("Saved mask affine matrix:\n", saved_mask_img.affine)
+        print("Saved mask data shape:", saved_mask_img.get_fdata().shape)
+        print("Saved mask unique values:", np.unique(saved_mask_img.get_fdata()))
+
+        # Local create_brain_mask for demonstration
+
+    # def create_brain_mask(self, mri_image):
+    #     return mri_image > 0
+
+        # -------- Save Button --------
+
+    def save_current_mask(self, s_index, t_index):
+        slice_idx = int(s_index)
+        time_step = int(t_index)
+
+        # Simulate tumor growth for the entire 3D volume
+        full_tumor_mask = np.zeros_like(self.mri_data['flair'], dtype=bool)  # Initialize a 3D mask
+
+        for i in range(self.mri_data['flair'].shape[0]):  # Iterate over all slices
+            # Simulate growth for each slice
+            slice_mask = self.simulate_growth(
+                self.resize_mask_to_slice(self.mri_data['glistrboost'][i, :, :] > 0, self.mri_data['flair'].shape[1:]),
+                diffusion_rate=self.diffusion_map[i, :, :],
+                reaction_rate=self.reaction_rate,
+                time_steps=time_step,
+                brain_mask=self.create_brain_mask(self.mri_data['flair'][i, :, :])
+            )
+            full_tumor_mask[i, :, :] = slice_mask  # Add the slice to the 3D mask
+
+        # Debugging: Print the shape of the full 3D mask
+        print("\nDebugging Full 3D Tumor Mask Shape:")
+        print("Full tumor mask shape:", full_tumor_mask.shape)
+
+        # Save the full 3D mask using the FLAIR image as the reference
+        output_path = f"grown_tumor_mask_time_{time_step}.nii"
+        reference_nii_path = self.file_paths['flair']  # Use FLAIR as the reference image
+        self.save_tumor_mask_as_nii(full_tumor_mask, reference_nii_path, output_path)
+
+    # ax_save_button = plt.axes([0.05, 0.3, 0.15, 0.05])
+    # save_button = Button(ax_save_button, 'Save Mask')
+    # save_button.on_clicked(save_current_mask)
+
 
 if __name__ == "__main__":
     obj = BiologicalModel.instance()
