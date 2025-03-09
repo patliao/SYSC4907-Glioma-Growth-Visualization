@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_mainWindow(object):
     def setupUi(self, mainWindow):
         mainWindow.setObjectName("mainWindow")
-        mainWindow.resize(854, 641)
+        mainWindow.resize(1000, 700)
         mainWindow.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.Canada))
         mainWindow.setUnifiedTitleAndToolBarOnMac(False)
         self.centralwidget = QtWidgets.QWidget(mainWindow)
@@ -284,7 +284,7 @@ class Ui_mainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         mainWindow.setWindowTitle(_translate("mainWindow", "Glimoa Growth Visualization"))
         self.flair_file_button.setText(_translate("mainWindow", "Select Flair"))
-        self.glistrboost_file_button.setText(_translate("mainWindow", "Select Glistrboost"))
+        self.glistrboost_file_button.setText(_translate("mainWindow", "Select Segmentation"))
         self.t1_file_button.setText(_translate("mainWindow", "Select T1"))
         self.t1gd_file_button.setText(_translate("mainWindow", "Select T1GD"))
         self.t2_file_button.setText(_translate("mainWindow", "Select T2"))

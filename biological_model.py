@@ -7,7 +7,6 @@ from tkinter.filedialog import askopenfilename
 import platform
 import matplotlib
 import matplotlib.pyplot as plt
-
 from biologicalInfo import BiologicalInfo
 
 if platform.system() == "Darwin":
@@ -142,7 +141,6 @@ class BiologicalModel:
             mask = brain_mask_resized * (mask + diffused_mask + growth) # ensures all contributions are restricted to brain region
             mask = np.clip(mask, 0, 1)  # Keep values in range
 
-
         return mask > 0.5  # Threshold to keep mask as binary
 
     def time_in_days(self, step):
@@ -228,8 +226,6 @@ class BiologicalModel:
     def update(self, slice_idx, time_step, overlay, cur_scan):
         # slice_idx = int(self.slice_slider.val)
         # time_step = int(self.time_slider.val)
-
-
 
         self.brain_mask_sagittal = self.create_brain_mask(self.mri_data['flair'][slice_idx, :, :])
         self.brain_mask_coronal = self.create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
@@ -730,10 +726,9 @@ if __name__ == "__main__":
     else:
         file_paths = obj.get_file_paths()
 
-
     mri_data = obj.load_mri_data(file_paths) # Load the MRI data
 
     # Initialize the interactive visualization
     # obj.start_equation()
     # Initialize the interactive visualization
-    obj.interactive_growth_visualization(mri_data)
+    obj.interactive_growth_visualization_2(mri_data, cur_scan = 'flair')
