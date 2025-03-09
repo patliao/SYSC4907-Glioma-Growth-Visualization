@@ -60,7 +60,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
         self.toggle_checkbox.clicked.connect(self.update_plt)
 
-        self.slice_slider.sliderReleased.connect(self.update_plt)
+        self.slice_slider.sliderMoved.connect(self.update_plt)
         # self.time_slider.sliderReleased.connect(self.update_plt)
         self.time_slider.sliderMoved.connect(self.update_plt)
 

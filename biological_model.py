@@ -162,7 +162,7 @@ class BiologicalModel:
         self.tumor_mask_resized_coronal = self.resize_mask_to_slice(self.initial_tumor_mask_coronal, mri_data['flair'].shape[1:3])
         self.tumor_mask_resized_axial = self.resize_mask_to_slice(self.initial_tumor_mask_axial, mri_data['flair'].shape[:2])
         # Set up the figure and axis
-        fig, (self.ax_sagittal, self.ax_coronal, self.ax_axial) = plt.subplots(1, 3, figsize=(14, 7))
+        fig, (self.ax_sagittal, self.ax_coronal, self.ax_axial) = plt.subplots(1, 3, figsize=(50, 50))
         plt.subplots_adjust(left=0.25, bottom=0.35)
 
         # Initial scan setup for both figures
