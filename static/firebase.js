@@ -1,6 +1,6 @@
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
@@ -19,3 +19,32 @@ const db = getFirestore(app);
 
 // Test Firebase initialization
 console.log("Firebase initialized:", app);
+
+// Function to add data to Firestore
+async function addData() {
+  try {
+    const docRef = await addDoc(collection(db, "gliomaData"), {
+      timestamp: new Date(),
+      growthRate: 0.5, // Example data
+      tumorSize: 10.2, // Example data
+    });
+    console.log("Document written with ID: ", docRef.id);
+  } catch (e) {
+    console.error("Error adding document: ", e);
+  }
+}
+
+// Function to fetch data from Firestore
+async function fetchData() {
+  try {
+    const querySnapshot = await getDocs(collection(db, "gliomaData"));
+    querySnapshot.forEach((doc) => {
+      console.log(doc.id, " => ", doc.data());
+    });
+  } catch (e) {
+    console.error("Error fetching documents: ", e);
+  }
+}
+
+// Call addData() and fetchData() after Firebase is initialized
+addData().then(() => fetchData());
