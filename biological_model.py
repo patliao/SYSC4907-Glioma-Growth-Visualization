@@ -117,10 +117,28 @@ class BiologicalModel:
         self.file_paths = file_paths
         return file_paths
 
-    # Step 1: Load MRI Data
-    def load_mri_data(self, file_paths):
-        return {key: nib.load(file).get_fdata() for key, file in file_paths.items()}
-
+    def load_mri_data(self, file_paths, target_shape=(240, 240, 160)):
+        """Step 1: Load MRI Data, resize to target shape, and print dimensions."""
+        mri_data = {}
+        for key, file in file_paths.items():
+            # Load the NIfTI file
+            nii_img = nib.load(file)
+            # Get the data array
+            data = nii_img.get_fdata()
+            
+            # Resize the volume to the target shape
+            if data.shape != target_shape:
+                print(f"Resizing {key.upper()} scan from {data.shape} to {target_shape}...")
+                # Use nearest-neighbor interpolation for binary masks (e.g., GLISTRBOOST)
+                order = 0 if key == 'glistrboost' else 1
+                data = resize(data, target_shape, order=order, preserve_range=True, anti_aliasing=False)
+            
+            # Store the resized data in the dictionary
+            mri_data[key] = data
+            # Print the dimensions of the scan
+            print(f"Loaded {key.upper()} scan with dimensions: {data.shape}")
+        
+        return mri_data
 
     # Step 2: Resize the tumor mask to match the slice shape
     def resize_mask_to_slice(self, tumor_mask, slice_shape, dtype=bool):
