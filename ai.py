@@ -5,16 +5,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from sklearn.model_selection import train_test_split
 
 # Check if GPU is available and set the device
-device = torch.device("cpu")
+device = torch.device("cpu")  # Force CPU usage
 print(f"Using device: {device}")
 
 # Define the base directory
 base_dir = r"D:\cap\SYSC4907-Glioma-Growth-Visualization\data"
 
 # List of patient folders
-patients = ["100006", "100008", "100011", "100116", "100118"]
+patients = ["100006", "100008", "100011", "100116", "100118","100121"]
 
 # Function to load a .nii file
 def load_nii_file(file_path):
@@ -30,7 +32,31 @@ def normalize_image(image):
 def normalize_segmentation(segmentation):
     return (segmentation > 0).astype(np.float32)  # Convert to binary mask
 
+# Dice Loss for segmentation
+class DiceLoss(nn.Module):
+    def __init__(self):
+        super(DiceLoss, self).__init__()
+
+    def forward(self, inputs, targets):
+        smooth = 1.0
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        intersection = (inputs * targets).sum()
+        dice = (2.0 * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+        return 1.0 - dice
+
+# Combined Dice and BCE Loss
+class DiceBCELoss(nn.Module):
+    def __init__(self):
+        super(DiceBCELoss, self).__init__()
+        self.dice_loss = DiceLoss()
+        self.bce_loss = nn.BCELoss()
+
+    def forward(self, inputs, targets):
+        return self.bce_loss(inputs, targets) + self.dice_loss(inputs, targets)
+
 # Load data for each patient
+data = []
 for patient in patients:
     print(f"Loading data for patient: {patient}")
     
@@ -46,61 +72,12 @@ for patient in patients:
     time2_flair = load_nii_file(time2_flair_path)
     time2_seg = normalize_segmentation(load_nii_file(time2_seg_path))
     
-    # Print shapes to verify
-    print(f"Time1 FLAIR shape: {time1_flair.shape}")
-    print(f"Time1 Segmentation shape: {time1_seg.shape}")
-    print(f"Time2 FLAIR shape: {time2_flair.shape}")
-    print(f"Time2 Segmentation shape: {time2_seg.shape}")
-    print("-" * 40)
-
-# Normalize the FLAIR images for each patient
-for patient in patients:
-    print(f"Normalizing data for patient: {patient}")
-    
-    # Load the FLAIR images
-    time1_flair_path = os.path.join(base_dir, patient, f"{patient}_time1_flair.nii")
-    time2_flair_path = os.path.join(base_dir, patient, f"{patient}_time2_flair.nii")
-    
-    time1_flair = load_nii_file(time1_flair_path)
-    time2_flair = load_nii_file(time2_flair_path)
-    
-    # Normalize the images
+    # Normalize the FLAIR images
     time1_flair_normalized = normalize_image(time1_flair)
     time2_flair_normalized = normalize_image(time2_flair)
     
-    # Print min and max values to verify normalization
-    print(f"Time1 FLAIR normalized - min: {np.min(time1_flair_normalized)}, max: {np.max(time1_flair_normalized)}")
-    print(f"Time2 FLAIR normalized - min: {np.min(time2_flair_normalized)}, max: {np.max(time2_flair_normalized)}")
-    print("-" * 40)
-
-# Split the data into training and testing sets
-train_patients = ["100006", "100008", "100011", "100116"]  # Added 100006 and 100008
-test_patient = "100118"
-
-# Prepare training data
-train_data = []
-for patient in train_patients:
-    print(f"Preparing training data for patient: {patient}")
-    
-    # Load and normalize FLAIR images
-    time1_flair_path = os.path.join(base_dir, patient, f"{patient}_time1_flair.nii")
-    time2_flair_path = os.path.join(base_dir, patient, f"{patient}_time2_flair.nii")
-    
-    time1_flair = load_nii_file(time1_flair_path)
-    time2_flair = load_nii_file(time2_flair_path)
-    
-    time1_flair_normalized = normalize_image(time1_flair)
-    time2_flair_normalized = normalize_image(time2_flair)
-    
-    # Load segmentation masks
-    time1_seg_path = os.path.join(base_dir, patient, f"{patient}_time1_seg.nii")
-    time2_seg_path = os.path.join(base_dir, patient, f"{patient}_time2_seg.nii")
-    
-    time1_seg = normalize_segmentation(load_nii_file(time1_seg_path))
-    time2_seg = normalize_segmentation(load_nii_file(time2_seg_path))
-    
-    # Append to training data
-    train_data.append({
+    # Append to data
+    data.append({
         "patient": patient,
         "time1_flair": time1_flair_normalized,
         "time1_seg": time1_seg,
@@ -108,30 +85,34 @@ for patient in train_patients:
         "time2_seg": time2_seg
     })
 
-# Prepare testing data
-print(f"Preparing testing data for patient: {test_patient}")
-time1_flair_path = os.path.join(base_dir, test_patient, f"{test_patient}_time1_flair.nii")
-time2_flair_path = os.path.join(base_dir, test_patient, f"{test_patient}_time2_flair.nii")
+# Split the data into training and validation sets
+train_data, val_data = train_test_split(data, test_size=0.2, random_state=42)
 
-time1_flair = load_nii_file(time1_flair_path)
-time2_flair = load_nii_file(time2_flair_path)
+# Split the data into training and validation sets
+train_data, val_data = train_test_split([d for d in data if d["patient"] != "100121"], test_size=0.2, random_state=42)
 
-time1_flair_normalized = normalize_image(time1_flair)
-time2_flair_normalized = normalize_image(time2_flair)
+# Prepare testing data for 100118 and 100121
+test_patients = ["100118", "100121"]
+test_data = []
 
-time1_seg_path = os.path.join(base_dir, test_patient, f"{test_patient}_time1_seg.nii")
-time2_seg_path = os.path.join(base_dir, test_patient, f"{test_patient}_time2_seg.nii")
+for test_patient in test_patients:
+    time1_flair_path = os.path.join(base_dir, test_patient, f"{test_patient}_time1_flair.nii")
+    time2_flair_path = os.path.join(base_dir, test_patient, f"{test_patient}_time2_flair.nii")
+    time1_seg_path = os.path.join(base_dir, test_patient, f"{test_patient}_time1_seg.nii")
+    time2_seg_path = os.path.join(base_dir, test_patient, f"{test_patient}_time2_seg.nii")
 
-time1_seg = normalize_segmentation(load_nii_file(time1_seg_path))
-time2_seg = normalize_segmentation(load_nii_file(time2_seg_path))
+    time1_flair = load_nii_file(time1_flair_path)
+    time2_flair = load_nii_file(time2_flair_path)
+    time1_seg = normalize_segmentation(load_nii_file(time1_seg_path))
+    time2_seg = normalize_segmentation(load_nii_file(time2_seg_path))
 
-test_data = {
-    "patient": test_patient,
-    "time1_flair": time1_flair_normalized,
-    "time1_seg": time1_seg,
-    "time2_flair": time2_flair_normalized,
-    "time2_seg": time2_seg
-}
+    test_data.append({
+        "patient": test_patient,
+        "time1_flair": normalize_image(time1_flair),
+        "time1_seg": time1_seg,
+        "time2_flair": normalize_image(time2_flair),
+        "time2_seg": time2_seg
+    })
 
 print("Data splitting complete!")
 
@@ -146,23 +127,24 @@ def pad_to_divisible(tensor, divisible_by=16):
     padded_tensor = F.pad(tensor, (0, pad_width, 0, pad_height, 0, pad_depth))
     return padded_tensor
 
+# Simplified U-Net model for CPU training
 class UNet3D(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UNet3D, self).__init__()
         
         # Encoder with fewer filters
-        self.encoder1 = self.conv_block(in_channels, 32)
-        self.encoder2 = self.conv_block(32, 64)
-        self.encoder3 = self.conv_block(64, 128)
-        self.encoder4 = self.conv_block(128, 256)
+        self.encoder1 = self.conv_block(in_channels, 16)  # Reduced filters
+        self.encoder2 = self.conv_block(16, 32)
+        self.encoder3 = self.conv_block(32, 64)
+        self.encoder4 = self.conv_block(64, 128)
         
         # Decoder with fewer filters
-        self.decoder1 = self.upconv_block(256, 128)
-        self.decoder2 = self.upconv_block(128, 64)
-        self.decoder3 = self.upconv_block(64, 32)
+        self.decoder1 = self.upconv_block(128, 64)
+        self.decoder2 = self.upconv_block(64, 32)
+        self.decoder3 = self.upconv_block(32, 16)
         
         # Final layer
-        self.final = nn.Conv3d(32, out_channels, kernel_size=1)
+        self.final = nn.Conv3d(16, out_channels, kernel_size=1)
     
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
@@ -217,33 +199,65 @@ class GliomaDataset(Dataset):
         
         return x, y
 
-# Create datasets and dataloaders
-train_dataset = GliomaDataset(train_data)
-test_dataset = GliomaDataset([test_data])
+# Main execution block
+if __name__ == "__main__":
+    # Create datasets and dataloaders
+    train_dataset = GliomaDataset(train_data)
+    val_dataset = GliomaDataset(val_data)
+    test_dataset = GliomaDataset([test_data])
 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=1)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)  # Set num_workers=0 for Windows
+    val_loader = DataLoader(val_dataset, batch_size=1, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=1, num_workers=0)
 
-# Initialize model, loss function, and optimizer
-model = UNet3D(in_channels=2, out_channels=1).to(device)  # Move model to GPU
-criterion = nn.BCELoss()  # Binary Cross-Entropy Loss
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # Initialize model, loss function, and optimizer
+    model = UNet3D(in_channels=2, out_channels=1).to(device)
+    criterion = DiceBCELoss()  # Use Dice + BCE Loss
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=3, verbose=True)  # Learning rate scheduler
 
-# Training loop
-num_epochs = 3 # Reduced for quick results
-for epoch in range(num_epochs):
-    model.train()
-    for x, y in train_loader:
-        x, y = x.to(device), y.to(device)  # Move data to GPU
-        optimizer.zero_grad()
+    # Training loop
+    num_epochs = 10  # Increased number of epochs
+    best_val_loss = float("inf")
+
+    for epoch in range(num_epochs):
+        model.train()
+        train_loss = 0.0
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
+            optimizer.zero_grad()
+            
+            outputs = model(x)
+            loss = criterion(outputs, y)
+            loss.backward()
+            optimizer.step()
+            
+            train_loss += loss.item()
         
-        outputs = model(x)
-        loss = criterion(outputs, y)
-        loss.backward()
-        optimizer.step()
-    
-    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+        # Validation phase
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for x, y in val_loader:
+                x, y = x.to(device), y.to(device)
+                outputs = model(x)
+                loss = criterion(outputs, y)
+                val_loss += loss.item()
+        
+        # Average losses
+        train_loss /= len(train_loader)
+        val_loss /= len(val_loader)
+        
+        # Update learning rate
+        scheduler.step(val_loss)
+        
+        # Save the best model
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), "glioma_unet3d_best.pth")
+        
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
-# Save the model for presentation
-torch.save(model.state_dict(), "glioma_unet3d.pth")
-print("Model saved for presentation!")
+    # Save the final model
+    torch.save(model.state_dict(), "glioma_unet3d_final.pth")
+    print("Training complete! Best model saved as 'glioma_unet3d_best.pth'.")
