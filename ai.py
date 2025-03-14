@@ -6,11 +6,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
+# Check if GPU is available and set the device
+device = torch.device("cpu")
+print(f"Using device: {device}")
+
 # Define the base directory
 base_dir = r"D:\cap\SYSC4907-Glioma-Growth-Visualization\data"
 
 # List of patient folders
-patients = ["100011", "100116", "100118"]
+patients = ["100006", "100008", "100011", "100116", "100118"]
 
 # Function to load a .nii file
 def load_nii_file(file_path):
@@ -70,7 +74,7 @@ for patient in patients:
     print("-" * 40)
 
 # Split the data into training and testing sets
-train_patients = ["100011", "100116"]
+train_patients = ["100006", "100008", "100011", "100116"]  # Added 100006 and 100008
 test_patient = "100118"
 
 # Prepare training data
@@ -221,17 +225,16 @@ train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1)
 
 # Initialize model, loss function, and optimizer
-device = torch.device("cpu")  # Force CPU usage
-model = UNet3D(in_channels=2, out_channels=1).to(device)
+model = UNet3D(in_channels=2, out_channels=1).to(device)  # Move model to GPU
 criterion = nn.BCELoss()  # Binary Cross-Entropy Loss
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 # Training loop
-num_epochs = 2  # Reduced for quick results
+num_epochs = 3 # Reduced for quick results
 for epoch in range(num_epochs):
     model.train()
     for x, y in train_loader:
-        x, y = x.to(device), y.to(device)
+        x, y = x.to(device), y.to(device)  # Move data to GPU
         optimizer.zero_grad()
         
         outputs = model(x)
