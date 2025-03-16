@@ -1,12 +1,12 @@
 class EquationConstant:
 
-    FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2']
+    FILE_KEYS = ['flair', 'glistrboost', 't1', 't1gd', 't2', 'seg2']
     FLAIR_KEY = 'flair'
     GLISTRBOOST_KEY = 'glistrboost'
     T1_KEY = 't1'
     T1GD_KEY = 't1gd'
     T2_KEY = 't2'
-
+    SEG2_KEY = 'seg2'
     SPATIAL_RESOLUTION = 1.0  # mm
     DIFFUSION_RATE = 0.236 # mm²/day
     REACTION_RATE = 0.012  # per day

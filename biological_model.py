@@ -33,7 +33,10 @@ class BiologicalModel:
         if cls._instance is None:
             cls._instance = BiologicalModel()
         return cls._instance
-
+    def load_second_segmentation(self, file_path):
+        """Load the second segmentation mask."""
+        return nib.load(file_path).get_fdata()
+    
     def get_file_paths(self):
         file_paths = {}
 
@@ -166,6 +169,14 @@ class BiologicalModel:
         initial_tumor_mask_coronal = mri_data['glistrboost'][:, coronal_slice_idx, :] > 0
         initial_tumor_mask_axial = mri_data['glistrboost'][:, :, axial_slice_idx] > 0
 
+        second_segmentation_mask_sagittal = mri_data['seg2'][sagittal_slice_idx, :, :] > 0
+        second_segmentation_mask_coronal = mri_data['seg2'][:, coronal_slice_idx, :] > 0
+        second_segmentation_mask_axial = mri_data['seg2'][:, :, axial_slice_idx] > 0
+    # Debug: Print shapes and unique values of the second segmentation mask
+        print("\nDebugging Second Segmentation Mask:")
+        print(f"Sagittal slice shape: {second_segmentation_mask_sagittal.shape}, unique values: {np.unique(second_segmentation_mask_sagittal)}")
+        print(f"Coronal slice shape: {second_segmentation_mask_coronal.shape}, unique values: {np.unique(second_segmentation_mask_coronal)}")
+        print(f"Axial slice shape: {second_segmentation_mask_axial.shape}, unique values: {np.unique(second_segmentation_mask_axial)}")
         # Resize the tumor masks
         tumor_mask_resized_sagittal = self.resize_mask_to_slice(
             initial_tumor_mask_sagittal,
@@ -180,6 +191,23 @@ class BiologicalModel:
             mri_data['flair'].shape[:2]
         )
 
+        # Resize the second segmentation masks
+        second_segmentation_mask_resized_sagittal = self.resize_mask_to_slice(
+            second_segmentation_mask_sagittal,
+            mri_data['flair'].shape[1:3]
+        )
+        second_segmentation_mask_resized_coronal = self.resize_mask_to_slice(
+            second_segmentation_mask_coronal,
+            mri_data['flair'].shape[1:3]
+        )
+        second_segmentation_mask_resized_axial = self.resize_mask_to_slice(
+            second_segmentation_mask_axial,
+            mri_data['flair'].shape[:2]
+        )
+        print("\nDebugging Resized Second Segmentation Mask:")
+        print(f"Sagittal slice shape: {second_segmentation_mask_resized_sagittal.shape}, unique values: {np.unique(second_segmentation_mask_resized_sagittal)}")
+        print(f"Coronal slice shape: {second_segmentation_mask_resized_coronal.shape}, unique values: {np.unique(second_segmentation_mask_resized_coronal)}")
+        print(f"Axial slice shape: {second_segmentation_mask_resized_axial.shape}, unique values: {np.unique(second_segmentation_mask_resized_axial)}")
         fig, (ax_sagittal, ax_coronal, ax_axial) = plt.subplots(1, 3, figsize=(14, 7))
         plt.subplots_adjust(left=0.25, bottom=0.35)
 
@@ -210,19 +238,35 @@ class BiologicalModel:
         tumor_overlay_coronal = tumor_mask_resized_coronal.T
         tumor_overlay_axial = tumor_mask_resized_axial.T
 
+        second_seg_overlay_sagittal = second_segmentation_mask_resized_sagittal.T
+        second_seg_overlay_coronal = second_segmentation_mask_resized_coronal.T
+        second_seg_overlay_axial = second_segmentation_mask_resized_axial.T
+
         # Apply tumor overlays in red
         scan_rgb_sagittal[tumor_overlay_sagittal, 0] = 1
         scan_rgb_sagittal[tumor_overlay_sagittal, 1] = 0
         scan_rgb_sagittal[tumor_overlay_sagittal, 2] = 0
 
-        # *** KEY FIX: replaced 'tum_overlay_coronal' with 'tumor_overlay_coronal' ***
+        # Apply second segmentation overlays in green
+        scan_rgb_sagittal[second_seg_overlay_sagittal, 0] = 0
+        scan_rgb_sagittal[second_seg_overlay_sagittal, 1] = 1
+        scan_rgb_sagittal[second_seg_overlay_sagittal, 2] = 0
+
         scan_rgb_coronal[tumor_overlay_coronal, 0] = 1
         scan_rgb_coronal[tumor_overlay_coronal, 1] = 0
         scan_rgb_coronal[tumor_overlay_coronal, 2] = 0
 
+        scan_rgb_coronal[second_seg_overlay_coronal, 0] = 0
+        scan_rgb_coronal[second_seg_overlay_coronal, 1] = 1
+        scan_rgb_coronal[second_seg_overlay_coronal, 2] = 0
+
         scan_rgb_axial[tumor_overlay_axial, 0] = 1
         scan_rgb_axial[tumor_overlay_axial, 1] = 0
         scan_rgb_axial[tumor_overlay_axial, 2] = 0
+
+        scan_rgb_axial[second_seg_overlay_axial, 0] = 0
+        scan_rgb_axial[second_seg_overlay_axial, 1] = 1
+        scan_rgb_axial[second_seg_overlay_axial, 2] = 0
 
         scan_img_sagittal.set_data(scan_rgb_sagittal)
         scan_img_coronal.set_data(scan_rgb_coronal)
@@ -332,7 +376,6 @@ class BiologicalModel:
 
         radio_button.on_clicked(update_scan_type)
 
-        # -------- Update (Sliders/Overlay) --------
         def update(val):
             slice_idx = int(slice_slider.val)
             time_step = int(time_slider.val)
@@ -391,6 +434,20 @@ class BiologicalModel:
                 mri_data[current_scan].shape[:2]
             )
 
+            # Prepare new second segmentation masks
+            second_segmentation_mask_resized_sagittal = self.resize_mask_to_slice(
+                mri_data['seg2'][slice_idx, :, :] > 0,
+                mri_data[current_scan].shape[1:]
+            )
+            second_segmentation_mask_resized_coronal = self.resize_mask_to_slice(
+                mri_data['seg2'][:, slice_idx, :] > 0,
+                mri_data[current_scan].shape[1:]
+            )
+            second_segmentation_mask_resized_axial = self.resize_mask_to_slice(
+                mri_data['seg2'][:, :, slice_idx] > 0,
+                mri_data[current_scan].shape[:2]
+            )
+
             # Simulate growth
             grown_tumor_mask_sagittal = self.simulate_growth(
                 tumor_mask_resized_sagittal,
@@ -414,8 +471,8 @@ class BiologicalModel:
                 brain_mask=brain_mask_axial
             )
 
-            # If overlay is on, color them red
             if overlay_on:
+                # Apply tumor overlays in red
                 scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 0] = 1
                 scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 1] = 0
                 scan_rgb_sagittal[grown_tumor_mask_sagittal.T, 2] = 0
@@ -428,13 +485,25 @@ class BiologicalModel:
                 scan_rgb_axial[grown_tumor_mask_axial.T, 1] = 0
                 scan_rgb_axial[grown_tumor_mask_axial.T, 2] = 0
 
+                # Apply second segmentation overlays in green
+                scan_rgb_sagittal[second_segmentation_mask_resized_sagittal.T, 0] = 0
+                scan_rgb_sagittal[second_segmentation_mask_resized_sagittal.T, 1] = 1
+                scan_rgb_sagittal[second_segmentation_mask_resized_sagittal.T, 2] = 0
+
+                scan_rgb_coronal[second_segmentation_mask_resized_coronal.T, 0] = 0
+                scan_rgb_coronal[second_segmentation_mask_resized_coronal.T, 1] = 1
+                scan_rgb_coronal[second_segmentation_mask_resized_coronal.T, 2] = 0
+
+                scan_rgb_axial[second_segmentation_mask_resized_axial.T, 0] = 0
+                scan_rgb_axial[second_segmentation_mask_resized_axial.T, 1] = 1
+                scan_rgb_axial[second_segmentation_mask_resized_axial.T, 2] = 0
+
             # Update the images
             scan_img_sagittal.set_data(scan_rgb_sagittal)
             scan_img_coronal.set_data(scan_rgb_coronal)
             scan_img_axial.set_data(scan_rgb_axial)
 
             fig.canvas.draw_idle()
-
         # Link update to sliders
         slice_slider.on_changed(update)
         time_slider.on_changed(update)
@@ -515,7 +584,6 @@ class BiologicalModel:
 
         return diffusion_map
 
-
 if __name__ == "__main__":
     obj = BiologicalModel.instance()
     args = obj.handle_args()
@@ -527,6 +595,5 @@ if __name__ == "__main__":
         file_paths = obj.get_file_paths()
 
     obj.file_paths = file_paths
-
     # Run the simulation
     obj.start_equation()
