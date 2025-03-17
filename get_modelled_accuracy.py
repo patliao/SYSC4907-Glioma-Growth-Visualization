@@ -1,6 +1,7 @@
 import nibabel as nib
 import numpy as np
 from skimage.transform import resize
+from scipy.spatial.distance import directed_hausdorff
 
 def load_tumor_mask(path_to_nii):
     tumor_mask = nib.load(path_to_nii)
@@ -38,12 +39,46 @@ def dice_similarity_coeff(modelled_tumor, actual_tumor):
     dsc = (2 * common_tumor_cells) / (total_predicted_cells + total_actual_cells)
     return dsc
 
+# max distance between two sets of points (largest distance error)
+# few outliers can heavily increase this
+# "how bad is the worst error?"
+def get_hausdorff_distance(modelled_tumor, actual_tumor):
+    modelled_tumor_array = np.argwhere(modelled_tumor)
+    actual_tumor_array = np.argwhere(actual_tumor)
+    return max(
+        directed_hausdorff(modelled_tumor_array, actual_tumor_array)[0],  # worst distance mismatch in model tumor
+        directed_hausdorff(actual_tumor_array, modelled_tumor_array)[0]   # worst distance mismatch in actual tumor
+    )
+
+# normalizes directed Hausdorff distances by the number of ground truth voxels
+# adjusts for tumor size so numbers are fairer
+# "how bad is the error on average considering the tumor size?"
+def balanced_average_hausdorff(modelled_tumor, actual_tumor):
+    modelled_tumor_array = np.argwhere(modelled_tumor)  # predicted segmentation (S)
+    actual_tumor_array = np.argwhere(actual_tumor)  # ground truth (G)
+
+    # number of ground truth voxels
+    G = len(actual_tumor_array)
+
+    if G == 0:
+        raise ValueError("Ground truth mask has no tumor voxels")
+    
+    G_to_S = directed_hausdorff(actual_tumor_array, modelled_tumor_array)[0]  # ground truth to prediction
+    S_to_G = directed_hausdorff(modelled_tumor_array, actual_tumor_array)[0]  # prediction to ground truth
+
+    BAHD = (G_to_S / G + S_to_G / G) / 2
+
+    return BAHD
+
+
 # main code
-modelled_tumor = load_tumor_mask("")
-actual_tumor = load_tumor_mask("")
+modelled_tumor = load_tumor_mask(r"")
+actual_tumor = load_tumor_mask(r"")
 resized_modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
 print(f"Sensitivity: {sensitivity(resized_modelled_tumor, actual_tumor)}")
 print(f"DSC: {dice_similarity_coeff(resized_modelled_tumor, actual_tumor)}")
+print(f"Hausdorff Distance: {get_hausdorff_distance(resized_modelled_tumor, actual_tumor)}mm")
+print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(resized_modelled_tumor, actual_tumor)}mm")
 
 
 
