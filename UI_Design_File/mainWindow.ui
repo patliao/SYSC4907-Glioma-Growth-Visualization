@@ -175,8 +175,8 @@
                </widget>
               </item>
               <item>
-               <widget class="QWidget" name="t2_file_widget" native="true">
-                <layout class="QHBoxLayout" name="horizontalLayout_5">
+               <widget class="QWidget" name="t2_file_widget_2" native="true">
+                <layout class="QHBoxLayout" name="horizontalLayout_12">
                  <property name="spacing">
                   <number>1</number>
                  </property>
@@ -201,6 +201,41 @@
                  </item>
                  <item>
                   <widget class="QLabel" name="t2_file_label">
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QWidget" name="seg2_file_widget" native="true">
+                <layout class="QHBoxLayout" name="horizontalLayout_5">
+                 <property name="spacing">
+                  <number>1</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>1</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>1</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>1</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>1</number>
+                 </property>
+                 <item>
+                  <widget class="QPushButton" name="seg_file_button">
+                   <property name="text">
+                    <string>Select Segment2</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="seg2_file_label">
                    <property name="text">
                     <string/>
                    </property>
@@ -267,6 +302,48 @@
                 </item>
                 <item>
                  <widget class="QLineEdit" name="diffusion_rate_input">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_13">
+                <item>
+                 <widget class="QLabel" name="grey_diffusion_rate_label">
+                  <property name="text">
+                   <string>Grey Matter Diffusion Rate: </string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLineEdit" name="grey_diffusion_rate_input">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_15">
+                <item>
+                 <widget class="QLabel" name="white_diffusion_rate_label">
+                  <property name="text">
+                   <string>White Matter Diffusion Rate: </string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLineEdit" name="white_diffusion_input">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                     <horstretch>0</horstretch>
