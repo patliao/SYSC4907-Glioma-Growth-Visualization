@@ -16,6 +16,7 @@ from matplotlib.widgets import Slider, CheckButtons, RadioButtons, Button
 from scipy.ndimage import gaussian_filter
 from skimage.transform import resize
 from Application.equation_constant import EquationConstant
+from scipy.ndimage import distance_transform_edt, center_of_mass
 import ants
 
 matplotlib.use('TkAgg')
@@ -33,9 +34,16 @@ class BiologicalModel:
         if cls._instance is None:
             cls._instance = BiologicalModel()
         return cls._instance
+    
     def load_second_segmentation(self, file_path):
         """Load the second segmentation mask."""
         return nib.load(file_path).get_fdata()
+    
+    def set_diffusion_rate(self, diffusion_rate):
+        self.diffusion_rate = diffusion_rate
+
+    def set_reaction_rate(self, reaction_rate):
+        self.reaction_rate = reaction_rate
     
     def get_file_paths(self):
         file_paths = {}
@@ -78,18 +86,6 @@ class BiologicalModel:
         self.file_paths = file_paths
         return file_paths
 
-    def get_diffusion_rate(self):
-        return self.diffusion_rate
-
-    def set_diffusion_rate(self, diffusion_rate):
-        self.diffusion_rate = diffusion_rate
-
-    def get_reaction_rate(self):
-        return self.reaction_rate
-
-    def set_reaction_rate(self, reaction_rate):
-        self.reaction_rate = reaction_rate
-
     def load_mri_data(self, file_paths):
         """Step 1: Load MRI Data"""
         return {key: nib.load(file).get_fdata() for key, file in file_paths.items()}
@@ -105,20 +101,26 @@ class BiologicalModel:
         )
         return resized_mask.astype(dtype)
 
-    def simulate_growth(self, initial_mask, diffusion_rate, reaction_rate, time_steps, brain_mask):
+    def simulate_growth(self, initial_mask, diffusion_rate, time_steps, brain_mask):
         """Step 3: Simulate Tumor Growth using Reaction-Diffusion"""
         mask = initial_mask.copy().astype(float)
         brain_mask_resized = self.resize_mask_to_slice(brain_mask, mask.shape)
         diffusion_map_resized = self.resize_mask_to_slice(diffusion_rate, mask.shape, dtype=float)
+        decay = self.get_decay_factor(mask)
 
         for _ in range(time_steps):
-            diffused_mask = gaussian_filter(mask, sigma=1.0) * diffusion_map_resized
-            growth = self.reaction_rate * mask * (1 - mask)
+            diffused_mask = gaussian_filter(mask, sigma=1.0) * diffusion_map_resized * decay
+            growth = self.reaction_rate * mask * (1 - mask) * decay
 
             mask = brain_mask_resized * (mask + diffused_mask + growth)
             mask = np.clip(mask, 0, 1)  # keep values in [0, 1]
 
         return mask > 0.5
+    
+    def get_decay_factor(self, mask):
+        distance_map = distance_transform_edt(mask == 0)
+        decay_factor = np.exp(-distance_map / EquationConstant.LAMBDA)
+        return decay_factor
 
     def save_tumor_mask_as_nii(self, tumor_mask, reference_nii_path, output_path="grown_tumor_mask.nii"):
         """Save the grown tumor mask as a .nii file using the affine matrix from the reference image."""
@@ -297,11 +299,15 @@ class BiologicalModel:
 
         def calculate_time_in_days(step):
             max_diffusion = max(
-                self.diffusion_rate,
                 EquationConstant.CSF_DIFFUSION_RATE,
                 EquationConstant.GREY_DIFFUSION_RATE,
                 EquationConstant.WHITE_DIFFUSION_RATE
             )
+            # mean_diffusion = np.mean([
+            #     EquationConstant.CSF_DIFFUSION_RATE,
+            #     EquationConstant.GREY_DIFFUSION_RATE,
+            #     EquationConstant.WHITE_DIFFUSION_RATE
+            # ])
             time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
             return step * time_step
 
@@ -328,7 +334,6 @@ class BiologicalModel:
                 slice_mask = self.simulate_growth(
                     self.resize_mask_to_slice(mri_data['glistrboost'][i, :, :] > 0, mri_data['flair'].shape[1:]),
                     diffusion_rate=diffusion_map[i, :, :],
-                    reaction_rate=self.reaction_rate,
                     time_steps=time_step,
                     brain_mask=create_brain_mask(mri_data['flair'][i, :, :])
                 )
@@ -452,21 +457,18 @@ class BiologicalModel:
             grown_tumor_mask_sagittal = self.simulate_growth(
                 tumor_mask_resized_sagittal,
                 diffusion_rate=diffusion_map_sagittal,
-                reaction_rate=self.reaction_rate,
                 time_steps=time_step,
                 brain_mask=brain_mask_sagittal
             )
             grown_tumor_mask_coronal = self.simulate_growth(
                 tumor_mask_resized_coronal,
                 diffusion_rate=diffusion_map_coronal,
-                reaction_rate=self.reaction_rate,
                 time_steps=time_step,
                 brain_mask=brain_mask_coronal
             )
             grown_tumor_mask_axial = self.simulate_growth(
                 tumor_mask_resized_axial,
                 diffusion_rate=diffusion_map_axial,
-                reaction_rate=self.reaction_rate,
                 time_steps=time_step,
                 brain_mask=brain_mask_axial
             )
@@ -538,7 +540,9 @@ class BiologicalModel:
         """ Main driver function to load data, create diffusion map, and start visualization. """
         mri_data = self.load_mri_data(self.file_paths)
         initial_diffusion_map = self.create_diffusion_map(self.file_paths["t1"])
-        diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, self.diffusion_rate)
+        diffusion_map = np.where(initial_diffusion_map > 0, initial_diffusion_map, EquationConstant.DIFFUSION_RATE)
+        seg2_path = r"C:\Users\Frankii Siconolfi\YEARFOUR\SYSC4907-Glioma-Growth-Visualization\100011\100011_time2_seg.nii.gz"
+        mri_data['seg2'] = nib.load(seg2_path).get_fdata()
         fig = self.interactive_growth_visualization(mri_data, diffusion_map)
         return fig
 
