@@ -34,7 +34,7 @@ class MainWindowController:
 
     def run_equation_model(self, diffusion, reaction, grey_diff, white_diff, scan):
 
-        self.equation_model.set_diffusion_rate(diffusion)
+        self.equation_model.set_csf_diffusion_rate(diffusion)
         self.equation_model.set_reaction_rate(reaction)
         resultFig, cur_slice_index, max_slices = self.equation_model.start_equation(scan, grey_diff, white_diff)
         self.view.init_sliders(cur_slice_index, max_slices)

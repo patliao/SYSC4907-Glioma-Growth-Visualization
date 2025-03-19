@@ -7,7 +7,6 @@ from tkinter.filedialog import askopenfilename
 import platform
 import matplotlib
 import matplotlib.pyplot as plt
-from biologicalInfo import BiologicalInfo
 
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
@@ -57,6 +56,9 @@ class BiologicalModel:
         self.diffusion_rate = EquationConstant.DIFFUSION_RATE
         self.reaction_rate = EquationConstant.REACTION_RATE
         self.without_app = False
+        self.csf_diffusion_rate = EquationConstant.CSF_DIFFUSION_RATE
+        self.grey_diffusion_rate = EquationConstant.GREY_DIFFUSION_RATE
+        self.white_diffusion_rate = EquationConstant.WHITE_DIFFUSION_RATE
 
     @classmethod
     def instance(cls):
@@ -67,8 +69,8 @@ class BiologicalModel:
     def get_diffusion_rate(self):
         return self.diffusion_rate
 
-    def set_diffusion_rate(self, diffusion_rate):
-        self.diffusion_rate = diffusion_rate
+    def set_csf_diffusion_rate(self, csf_dr):
+        self.csf_diffusion_rate = csf_dr
 
     def get_reaction_rate(self):
         return self.reaction_rate
@@ -285,10 +287,8 @@ class BiologicalModel:
         brain_mask = mri_image > 0
         return brain_mask
 
-        # Update function for the sliders and toggle
+    # Update function for the sliders and toggle
     def update(self, slice_idx, time_step, overlay, cur_scan):
-        # slice_idx = int(self.slice_slider.val)
-        # time_step = int(self.time_slider.val)
 
         self.brain_mask_sagittal = self.create_brain_mask(self.mri_data['flair'][slice_idx, :, :])
         self.brain_mask_coronal = self.create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
@@ -423,23 +423,25 @@ class BiologicalModel:
         return args
 
     def run_ants_diffusion_map(self, t1_file, grey_d, white_d, diffusion):
-
+        # Run antDiffusionMap in a subprocess
         print("start run another ants")
         subprocess.run([sys.executable, "antDiffusionMap.py", t1_file, str(grey_d), str(white_d), str(diffusion)], check=True)
         print("after subprocess run")
 
     def start_equation(self, cur_scan, grey_diffusion, white_diffusion):
 
+        self.grey_diffusion_rate = grey_diffusion
+        self.white_diffusion_rate = white_diffusion
+
         self.mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
 
         max_slices = self.get_max_slice_value(self.mri_data, cur_scan) - 1
 
-        # Initialize the interactive visualization
-        # result_queue = multiprocessing.Queue()
+        # ====================== Generate Diffusion Map =========================================
+        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(self.file_paths["t1"],
+                                                                                    grey_diffusion, white_diffusion,
+                                                                                    self.csf_diffusion_rate))
 
-        BiologicalInfo.instance().file_path = self.file_paths["t1"]
-        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(BiologicalInfo.instance().file_path,
-                                                                                    grey_diffusion, white_diffusion, self.diffusion_rate))
         process.start()
         print("process start")
         # process.join(timeout=180)
@@ -447,17 +449,16 @@ class BiologicalModel:
 
         print("finish diffusion map")
 
-        BiologicalInfo.instance().diffusion_mask = np.load('diffusion_map.npy')
+        map = np.load('diffusion_map.npy')  # load diffusion map as numpy
 
-        if BiologicalInfo.instance().diffusion_mask is not None:
-            print(f"has diffusion mask: {BiologicalInfo.instance().diffusion_mask}")
+        if map is not None:
+            print(f"has diffusion mask: {map}")
         else:
-            print(f"error diffusion mask: {BiologicalInfo.instance().diffusion_mask}")
-
-        map = BiologicalInfo.instance().diffusion_mask
+            print(f"error diffusion mask: {map}")
+            map = []
+        # ======================= End of Generate Diffusion Map ====================================
 
         self.diffusion_map = np.where( map> 0, map, EquationConstant.DIFFUSION_RATE)
-
 
         testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
         cur_slice_index = self.sagittal_slice_idx
@@ -467,52 +468,52 @@ class BiologicalModel:
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-    def create_diffusion_map(self, t1_image, queue):
-        threshold = 0.5
-        print("Segmenting MRI data (this will take several moments)...")
-
-        t1_image_path = r"{}".format(t1_image)
-        t1_image = ants.image_read(t1_image_path)
-        t1_corrected = ants.n4_bias_field_correction(t1_image)
-        t1_normalized = ants.iMath(t1_corrected, "Normalize")
-
-        brain_mask = ants.get_mask(t1_normalized)
-        refined_mask = ants.iMath(brain_mask, "MD", 2)
-
-        segmentation = ants.atropos(
-            a=t1_normalized,
-            x=refined_mask,
-            i=f'kmeans[5]',
-            m='[0.6,1x1x1]',
-            c='[10,0.01]'
-        )
-
-        print("ants.atropos")
-
-        # Combine clusters for CSF, GM, and WM
-        csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
-        gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
-        wm_map = segmentation['probabilityimages'][4]  # WM
-
-        csf_map = ants.threshold_image(csf_map, threshold, 1)
-        gm_map = ants.threshold_image(gm_map, threshold, 1)
-        wm_map = ants.threshold_image(wm_map, threshold, 1)
-
-        csf_data = csf_map.numpy()
-        gm_data = gm_map.numpy()
-        wm_data = wm_map.numpy()
-
-        diffusion_map = np.zeros_like(gm_data)
-        diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
-        diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
-        diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
-
-        queue.put(diffusion_map.copy())
-        print("ants finish")
-        sys.stdout.flush()
-        # del diffusion_map, t1_image, t1_corrected, t1_normalized, brain_mask, refined_mask, segmentation, csf_map, gm_map, wm_map, csf_data, gm_data, wm_data
-        # gc.collect()
-        # return diffusion_map
+    # def create_diffusion_map(self, t1_image, queue):
+    #     threshold = 0.5
+    #     print("Segmenting MRI data (this will take several moments)...")
+    #
+    #     t1_image_path = r"{}".format(t1_image)
+    #     t1_image = ants.image_read(t1_image_path)
+    #     t1_corrected = ants.n4_bias_field_correction(t1_image)
+    #     t1_normalized = ants.iMath(t1_corrected, "Normalize")
+    #
+    #     brain_mask = ants.get_mask(t1_normalized)
+    #     refined_mask = ants.iMath(brain_mask, "MD", 2)
+    #
+    #     segmentation = ants.atropos(
+    #         a=t1_normalized,
+    #         x=refined_mask,
+    #         i=f'kmeans[5]',
+    #         m='[0.6,1x1x1]',
+    #         c='[10,0.01]'
+    #     )
+    #
+    #     print("ants.atropos")
+    #
+    #     # Combine clusters for CSF, GM, and WM
+    #     csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
+    #     gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
+    #     wm_map = segmentation['probabilityimages'][4]  # WM
+    #
+    #     csf_map = ants.threshold_image(csf_map, threshold, 1)
+    #     gm_map = ants.threshold_image(gm_map, threshold, 1)
+    #     wm_map = ants.threshold_image(wm_map, threshold, 1)
+    #
+    #     csf_data = csf_map.numpy()
+    #     gm_data = gm_map.numpy()
+    #     wm_data = wm_map.numpy()
+    #
+    #     diffusion_map = np.zeros_like(gm_data)
+    #     diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
+    #     diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
+    #     diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
+    #
+    #     queue.put(diffusion_map.copy())
+    #     print("ants finish")
+    #     sys.stdout.flush()
+    #     # del diffusion_map, t1_image, t1_corrected, t1_normalized, brain_mask, refined_mask, segmentation, csf_map, gm_map, wm_map, csf_data, gm_data, wm_data
+    #     # gc.collect()
+    #     # return diffusion_map
 
     def save_tumor_mask_as_nii(self, tumor_mask, reference_nii_path, output_path="grown_tumor_mask.nii"):
         """Save the grown tumor mask as a .nii file using the affine matrix from the reference image."""
@@ -552,12 +553,6 @@ class BiologicalModel:
         print("Saved mask data shape:", saved_mask_img.get_fdata().shape)
         print("Saved mask unique values:", np.unique(saved_mask_img.get_fdata()))
 
-        # Local create_brain_mask for demonstration
-
-    # def create_brain_mask(self, mri_image):
-    #     return mri_image > 0
-
-        # -------- Save Button --------
 
     def save_current_mask(self, s_index, t_index):
         slice_idx = int(s_index)

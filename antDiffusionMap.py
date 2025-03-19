@@ -5,6 +5,7 @@ import ants, sys
 
 threshold = 0.5
 
+# ========================== Getting Input ===================================
 if len(sys.argv) != 5:
     print("Incorrect path")
     sys.exit("exit diffusion map")
@@ -23,12 +24,13 @@ except:
     white_diffusion_rate = EquationConstant.WHITE_DIFFUSION_RATE
 
 try:
-    diffusion_rate = float(sys.argv[4])
+    csf_diffusion_rate = float(sys.argv[4])
 except:
-    diffusion_rate = EquationConstant.DIFFUSION_RATE
+    csf_diffusion_rate = EquationConstant.CSF_DIFFUSION_RATE
 
 print(f"t1 path: {path}")
-print(f"grey {grey_diffusion_rate}, white {white_diffusion_rate}, diffusion rate: {diffusion_rate}")
+print(f"grey {grey_diffusion_rate}, white {white_diffusion_rate}, diffusion rate: {csf_diffusion_rate}")
+# ========================= Finish getting Input ====================
 
 print("Segmenting MRI data (this will take several moments)...")
 
@@ -90,9 +92,9 @@ diffusion_map = np.zeros_like(gm_data)
 # diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
 # diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
 
-diffusion_map[csf_data > 0] = diffusion_rate
+diffusion_map[csf_data > 0] = csf_diffusion_rate
 diffusion_map[gm_data > 0] = grey_diffusion_rate
 diffusion_map[wm_data > 0] = white_diffusion_rate
 
-np.save('diffusion_map.npy', diffusion_map)
+np.save('diffusion_map.npy', diffusion_map)  # Save the diffusion map to local then other process can retrieve
 print("ants finish")
