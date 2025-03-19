@@ -5,6 +5,7 @@ import ants, sys
 
 threshold = 0.5
 
+# ========================== Getting Input ===================================
 if len(sys.argv) != 5:
     print("Incorrect path")
     sys.exit("exit diffusion map")
@@ -29,6 +30,7 @@ except:
 
 print(f"t1 path: {path}")
 print(f"grey {grey_diffusion_rate}, white {white_diffusion_rate}, diffusion rate: {csf_diffusion_rate}")
+# ========================= Finish getting Input ====================
 
 print("Segmenting MRI data (this will take several moments)...")
 
