@@ -422,13 +422,13 @@ class BiologicalModel:
         args = parser.parse_args()
         return args
 
-    def run_ants_diffusion_map(self, t1_file):
+    def run_ants_diffusion_map(self, t1_file, grey_d, white_d, diffusion):
 
         print("start run another ants")
-        subprocess.run([sys.executable, "antDiffusionMap.py", t1_file], check=True)
+        subprocess.run([sys.executable, "antDiffusionMap.py", t1_file, str(grey_d), str(white_d), str(diffusion)], check=True)
         print("after subprocess run")
 
-    def start_equation(self, cur_scan):
+    def start_equation(self, cur_scan, grey_diffusion, white_diffusion):
 
         self.mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
 
@@ -438,7 +438,8 @@ class BiologicalModel:
         # result_queue = multiprocessing.Queue()
 
         BiologicalInfo.instance().file_path = self.file_paths["t1"]
-        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(BiologicalInfo.instance().file_path,))
+        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(BiologicalInfo.instance().file_path,
+                                                                                    grey_diffusion, white_diffusion, self.diffusion_rate))
         process.start()
         print("process start")
         # process.join(timeout=180)

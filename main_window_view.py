@@ -52,6 +52,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T1_KEY))
         self.t1gd_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T1GD_KEY))
         self.t2_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T2_KEY))
+        self.seg_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.SEG2_KEY))
 
         self.flair_rb.toggled.connect(self.update_plt)
         self.t1_rb.toggled.connect(self.update_plt)
@@ -98,8 +99,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             self.t1_file_label.setText(file_name)
         elif label_key == EquationConstant.T1GD_KEY:
             self.t1gd_file_label.setText(file_name)
-        else:
+        elif label_key == EquationConstant.T2_KEY:
             self.t2_file_label.setText(file_name)
+        elif label_key == EquationConstant.SEG2_KEY:
+            self.seg2_file_label.setText(file_name)
 
     def file_select_dialog(self):
         dlg = QFileDialog()
@@ -115,9 +118,13 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             QApplication.processEvents()
             diffusion = self.get_diffusion()
             reaction = self.get_reaction()
-            self.controller.run_equation_model(diffusion, reaction, self.get_cur_scan())
+            grey_diff = self.get_grey_diffusion()
+            white_diff = self.get_white_diffusion()
+            self.controller.run_equation_model(diffusion, reaction, grey_diff, white_diff, self.get_cur_scan())
             self.disable_by_start(True)
-            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion} and reaction rate {reaction}")
+            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion},"
+                                                     f" white matter diffusion rate {white_diff},"
+                                                     f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
             #
             # self.controller.set_before_run(diffusion, reaction, self.get_cur_scan())
             # self.controller.start()
@@ -156,6 +163,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def set_default_input(self):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
+        self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
+        self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
         self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
     def set_input_range_label(self):
@@ -209,6 +218,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def disable_input_lineedit(self, disable):
         self.diffusion_rate_input.setDisabled(disable)
+        self.grey_diffusion_rate_input.setDisabled(disable)
+        self.white_diffusion_input.setDisabled(disable)
         self.reaction_rate_input.setDisabled(disable)
 
     def disable_file_selection(self, disable):
@@ -217,6 +228,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1_file_button.setDisabled(disable)
         self.t1gd_file_button.setDisabled(disable)
         self.t2_file_button.setDisabled(disable)
+        self.seg_file_button.setDisabled(disable)
 
     def disable_radio_buttons(self, disable):
         self.flair_rb.setDisabled(disable)
@@ -250,19 +262,21 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             current_file_path = os.path.dirname(__file__)
             # parent_path = os.path.split(current_file_path)[0]
             # testing_files_path = os.path.join(parent_path, "TCGA-HT-8111")
-            testing_files_path = os.path.join(current_file_path, "TCGA-HT-8111")
+            testing_files_path = os.path.join(current_file_path, "100001")
             for filename in os.listdir(testing_files_path):
                 file_path = os.path.join(testing_files_path, filename)
-                if filename.__contains__("flair.nii"):
+                if filename.__contains__("time1_flair.nii"):
                     self.update_selected_file_info(EquationConstant.FLAIR_KEY, file_path, filename)
-                elif filename.__contains__("GlistrBoost.nii"):
+                elif filename.__contains__("time1_seg.nii"):
                     self.update_selected_file_info(EquationConstant.GLISTRBOOST_KEY, file_path, filename)
-                elif filename.__contains__("t1.nii"):
+                elif filename.__contains__("time1_t1.nii"):
                     self.update_selected_file_info(EquationConstant.T1_KEY, file_path, filename)
-                elif filename.__contains__("t1Gd.nii"):
+                elif filename.__contains__("time1_t1ce.nii"):
                     self.update_selected_file_info(EquationConstant.T1GD_KEY, file_path, filename)
-                elif filename.__contains__("t2.nii"):
+                elif filename.__contains__("time1_t2.nii"):
                     self.update_selected_file_info(EquationConstant.T2_KEY, file_path, filename)
+                elif filename.__contains__("time2_seg.nii"):
+                    self.update_selected_file_info(EquationConstant.SEG2_KEY, file_path, filename)
         except:
             print("Auto Selection Fail!")
 
@@ -291,6 +305,22 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             pass
         self.reaction_rate_input.setText(str(reaction_rate))
         return reaction_rate
+
+    def get_grey_diffusion(self):
+        grey_diffusion_rate = EquationConstant.GREY_DIFFUSION_RATE
+        try:
+            grey_diffusion_rate = float(self.grey_diffusion_rate_input.text())
+        except:
+            pass
+        return grey_diffusion_rate
+
+    def get_white_diffusion(self):
+        white_diffusion_rate = EquationConstant.WHITE_DIFFUSION_RATE
+        try:
+            white_diffusion_rate = float(self.white_diffusion_rate_input.text())
+        except:
+            pass
+        return white_diffusion_rate
 
     def save_screen(self):
         screenshot = self.window().grab()
