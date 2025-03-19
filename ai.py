@@ -8,6 +8,15 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.model_selection import train_test_split
 
+time_gaps = {
+    "100006": 56,
+    "100008": 56,
+    "100011": 35,
+    "100116": 252,
+    "100118": 56,
+    "100121": 28
+}
+
 # Check if GPU is available and set the device
 device = torch.device("cpu")  # Force CPU usage
 print(f"Using device: {device}")
