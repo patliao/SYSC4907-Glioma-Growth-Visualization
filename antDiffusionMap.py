@@ -5,14 +5,30 @@ import ants, sys
 
 threshold = 0.5
 
-if len(sys.argv) != 2:
+if len(sys.argv) != 5:
     print("Incorrect path")
     sys.exit("exit diffusion map")
 
 
 path = sys.argv[1]
 
+try:
+    grey_diffusion_rate = float(sys.argv[2])
+except:
+    grey_diffusion_rate = EquationConstant.GREY_DIFFUSION_RATE
+
+try:
+    white_diffusion_rate = float(sys.argv[3])
+except:
+    white_diffusion_rate = EquationConstant.WHITE_DIFFUSION_RATE
+
+try:
+    diffusion_rate = float(sys.argv[4])
+except:
+    diffusion_rate = EquationConstant.DIFFUSION_RATE
+
 print(f"t1 path: {path}")
+print(f"grey {grey_diffusion_rate}, white {white_diffusion_rate}, diffusion rate: {diffusion_rate}")
 
 print("Segmenting MRI data (this will take several moments)...")
 
@@ -70,9 +86,13 @@ print("after map data")
 # Generate the final diffusion map as a weighted sum
 diffusion_map = np.zeros_like(gm_data)
 
-diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
-diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
-diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
+# diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
+# diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
+# diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
+
+diffusion_map[csf_data > 0] = diffusion_rate
+diffusion_map[gm_data > 0] = grey_diffusion_rate
+diffusion_map[wm_data > 0] = white_diffusion_rate
 
 np.save('diffusion_map.npy', diffusion_map)
 print("ants finish")
