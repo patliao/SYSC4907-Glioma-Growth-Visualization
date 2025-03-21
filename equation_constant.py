@@ -22,3 +22,7 @@ class EquationConstant:
     MAX_DIFFUSION = 1.5
     MIN_REACTION = 0.01
     MAX_REACTION = 1.0
+
+    SAG = "sag"
+    COR = "cor"
+    AXI = "axi"

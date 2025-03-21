@@ -1,12 +1,15 @@
+import numpy as np
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
-from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QLabel
+from PyQt5.QtGui import QDoubleValidator, QImage, QPixmap
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from datetime import datetime
 
-from main_window_ui import Ui_mainWindow
+# from main_window_ui import Ui_mainWindow
+from newMainWindow import Ui_mainWindow
 from equation_constant import EquationConstant
 import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import platform
 if platform.system() == "Darwin":
@@ -59,21 +62,21 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1gd_rb.toggled.connect(self.update_plt)
         self.t2_rb.toggled.connect(self.update_plt)
 
+        self.equation_checkBox.toggled.connect(self.update_image_display)
+        self.mix_checkBox.toggled.connect(self.update_image_display)
+        self.real_checkBox.toggled.connect(self.update_image_display)
+        self.ai_checkBox.toggled.connect(self.update_image_display)
+
         self.toggle_checkbox.clicked.connect(self.update_plt)
 
         self.slice_slider.sliderMoved.connect(self.update_plt)
-        # self.time_slider.sliderReleased.connect(self.update_plt)
         self.time_slider.sliderMoved.connect(self.update_plt)
 
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
 
-
-        # self.controller.update_ui.connect(self.update_equation_graph)
-
         self.auto_selection()
-
-        # self.thread_pool = QThreadPool.globalInstance()
+        # self.testQImage()
 
         self.show()
 
@@ -116,18 +119,25 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         if self.check_files():
             self.process_info_label.show()
             QApplication.processEvents()
-            diffusion = self.get_diffusion()
+            csf_diff = self.get_diffusion()
             reaction = self.get_reaction()
             grey_diff = self.get_grey_diffusion()
             white_diff = self.get_white_diffusion()
-            self.controller.run_equation_model(diffusion, reaction, grey_diff, white_diff, self.get_cur_scan())
+            # self.controller.run_equation_model(diffusion, reaction, grey_diff, white_diff, self.get_cur_scan())
+            self.controller.start_prediction(reaction, csf_diff, grey_diff, white_diff, self.get_cur_scan(),
+                                             self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
             self.disable_by_start(True)
-            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion},"
+            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {csf_diff},"
                                                      f" white matter diffusion rate {white_diff},"
                                                      f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
             #
             # self.controller.set_before_run(diffusion, reaction, self.get_cur_scan())
             # self.controller.start()
+
+    def update_image_display(self):
+        self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
 
     def check_files(self):
         # TODO: Simple check, need to be updated!
@@ -171,10 +181,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
                                                  f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
 
-    # def (self):
-    #     value = self.slice_slider.value()
-    #     print(f"slider released {value}")
-
     def init_sliders(self, cur_slice, max_slice):
         self.slice_slider.setSliderPosition(cur_slice)
         self.slice_slider.setMaximum(max_slice)
@@ -193,7 +199,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         slice_i = self.slice_slider.value()
         time_i = self.time_slider.value()
         is_overlay = self.toggle_checkbox.isChecked()
-        self.controller.process_plts(scan, slice_i, time_i, is_overlay)
+        self.controller.process_plts(scan, slice_i, time_i, is_overlay,  self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
 
     def get_cur_scan(self):
         if self.t1_rb.isChecked():
@@ -253,6 +260,46 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
         # self.equation_layout.addWidget(FigureCanvasQTAgg(a))
         self.process_info_label.hide()
+
+    def testQImage(self):
+        print("testQImage")
+        loadData = np.load('rgb_sagittal.npy')
+        loadData = np.flipud(loadData)
+        loadData = np.ascontiguousarray(loadData)
+        height, width, slices = loadData.shape
+        loadData = np.clip(loadData * 255, 0, 255).astype(np.uint8)
+        print("create image")
+        segData = np.load('seg2.npy').T
+        segData = np.flipud(segData)
+        segData = np.ascontiguousarray(segData)
+        overlap = segData == 1
+        print("segData", segData)
+        loadData[overlap] = [255, 0, 0]
+        qImage = QImage(loadData.data, width, height, 3*width, QImage.Format_RGB888)
+        print("finish create image")
+        label =  QLabel()
+        label.setPixmap(QPixmap.fromImage(qImage))
+        print("finish label")
+        # self.sagittal_image_label.setPixmap(QPixmap.fromImage(qImage))
+        self.verticalLayout_6.addWidget(label)
+        print("set pixmap")
+
+        # plt.imshow(loadData, origin='upper')
+        # plt.show()
+
+    def update_plot(self, sag, cor, axi):
+        sag_height, sag_width, sag_channel = sag.shape
+        sag_Image = QImage(sag.data, sag_width, sag_height, sag_channel * sag_width, QImage.Format_RGB888)
+        self.sagittal_image_label.setPixmap(QPixmap.fromImage(sag_Image))
+
+        cor_height, cor_width, cor_channel = cor.shape
+        cor_Image = QImage(cor.data, cor_width, cor_height, cor_channel * cor_width, QImage.Format_RGB888)
+        self.coronal_label_image.setPixmap(QPixmap.fromImage(cor_Image))
+
+        axi_height, axi_width, axi_channel = axi.shape
+        axi_Image = QImage(axi.data, axi_width, axi_height, axi_channel * axi_width, QImage.Format_RGB888)
+        self.axial_label_image.setPixmap(QPixmap.fromImage(axi_Image))
+
 
     def auto_selection(self):
         """
