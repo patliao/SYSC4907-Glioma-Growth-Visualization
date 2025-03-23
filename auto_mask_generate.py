@@ -2,11 +2,28 @@ import os
 from datetime import datetime
 import nibabel as nib
 import numpy as np
+import pandas as pd
 from biological_model import BiologicalModel
 import multiprocessing
 from equation_constant import EquationConstant
 
-def automate_tumor_growth(file_paths, target_days=5, output_dir="output"):
+def read_excel_data(excel_path):
+    lptdg_sheet = pd.read_excel(excel_path, sheet_name='UCSF-LPTDG', header=None)  # No header
+    column_p_index = 15
+    increased_patients = lptdg_sheet[lptdg_sheet[column_p_index].str.contains("Increased", case=False, na=False)]
+    column_a_index = 0 
+    patient_ids = increased_patients[column_a_index].tolist()
+    
+    clinical_info_sheet = pd.read_excel(excel_path, sheet_name='Clinical Info', header = None)
+    days_between_scans = []
+    for patient_id in patient_ids:
+        matching_row = clinical_info_sheet[clinical_info_sheet[0] == patient_id]
+        days = round(matching_row.iloc[0, 2], 2) 
+        days_between_scans.append(days)
+
+    return patient_ids, days_between_scans
+
+def automate_tumor_growth(file_paths, target_days, output_dir="output"):
     model = BiologicalModel.instance()
     model.without_app = True
     mri_data = model.load_mri_data(file_paths)
@@ -45,10 +62,14 @@ def automate_tumor_growth(file_paths, target_days=5, output_dir="output"):
     print(f"Tumor growth simulation completed. Mask saved to {output_path}")
 
 if __name__ == "__main__":
-    file_paths = {
-        'flair': r"",
-        't1': r"",
-        'glistrboost': r"",
-        'seg2': r""
-    }
-    automate_tumor_growth(file_paths, target_days=5, output_dir="output")
+    excel_path = r"UCSF_PostopGlioma_Table S1 R1 V5.0_UNBLINDED_FINAL.xlsx"
+    patient_ids, days_between_scans = read_excel_data(excel_path)
+    for i in range(len(patient_ids)):
+        print(f"Processing patient {patient_ids[i]} with {days_between_scans[i]} days between scans...")
+        file_paths = {
+        'flair': rf"example\{patient_ids[i]}\{patient_ids[i]}_time1_flair.nii.gz",
+        't1': rf"example\{patient_ids[i]}\{patient_ids[i]}_time1_t1.nii.gz",
+        'glistrboost': rf"example\{patient_ids[i]}\{patient_ids[i]}_time1_seg.nii.gz",
+        'seg2': rf"example\{patient_ids[i]}\{patient_ids[i]}_time2_seg.nii.gz"
+        }
+        automate_tumor_growth(file_paths, target_days=days_between_scans[i], output_dir="output")
