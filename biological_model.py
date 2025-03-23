@@ -7,7 +7,7 @@ from tkinter.filedialog import askopenfilename
 import platform
 import matplotlib
 import matplotlib.pyplot as plt
-
+from datetime import datetime
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
 import nibabel as nib
@@ -468,81 +468,16 @@ class BiologicalModel:
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-    # def create_diffusion_map(self, t1_image, queue):
-    #     threshold = 0.5
-    #     print("Segmenting MRI data (this will take several moments)...")
-    #
-    #     t1_image_path = r"{}".format(t1_image)
-    #     t1_image = ants.image_read(t1_image_path)
-    #     t1_corrected = ants.n4_bias_field_correction(t1_image)
-    #     t1_normalized = ants.iMath(t1_corrected, "Normalize")
-    #
-    #     brain_mask = ants.get_mask(t1_normalized)
-    #     refined_mask = ants.iMath(brain_mask, "MD", 2)
-    #
-    #     segmentation = ants.atropos(
-    #         a=t1_normalized,
-    #         x=refined_mask,
-    #         i=f'kmeans[5]',
-    #         m='[0.6,1x1x1]',
-    #         c='[10,0.01]'
-    #     )
-    #
-    #     print("ants.atropos")
-    #
-    #     # Combine clusters for CSF, GM, and WM
-    #     csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
-    #     gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
-    #     wm_map = segmentation['probabilityimages'][4]  # WM
-    #
-    #     csf_map = ants.threshold_image(csf_map, threshold, 1)
-    #     gm_map = ants.threshold_image(gm_map, threshold, 1)
-    #     wm_map = ants.threshold_image(wm_map, threshold, 1)
-    #
-    #     csf_data = csf_map.numpy()
-    #     gm_data = gm_map.numpy()
-    #     wm_data = wm_map.numpy()
-    #
-    #     diffusion_map = np.zeros_like(gm_data)
-    #     diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
-    #     diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
-    #     diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
-    #
-    #     queue.put(diffusion_map.copy())
-    #     print("ants finish")
-    #     sys.stdout.flush()
-    #     # del diffusion_map, t1_image, t1_corrected, t1_normalized, brain_mask, refined_mask, segmentation, csf_map, gm_map, wm_map, csf_data, gm_data, wm_data
-    #     # gc.collect()
-    #     # return diffusion_map
-
     def save_tumor_mask_as_nii(self, tumor_mask, reference_nii_path, output_path="grown_tumor_mask.nii"):
-        """Save the grown tumor mask as a .nii file using the affine matrix from the reference image."""
-        # Debugging: Print mask properties before saving
-        print("\nDebugging Mask Properties:")
-        print("Mask shape:", tumor_mask.shape)
-        print("Mask unique values:", np.unique(tumor_mask))
-        print("Mask non-zero voxels:", np.count_nonzero(tumor_mask))
-
         # Load the reference NIfTI image to get its affine matrix
         reference_img = nib.load(reference_nii_path)
-        print("\nDebugging Reference Image Properties:")
-        print("Reference image shape:", reference_img.shape)
-        print("Reference affine matrix:\n", reference_img.affine)
-
-        # Ensure the mask is in the correct shape and data type
-        if tumor_mask.shape != reference_img.shape:
-            raise ValueError(f"Mask shape {tumor_mask.shape} does not match reference shape {reference_img.shape}.")
-
-        # Convert the binary mask to uint8 (0 and 1)
-        tumor_mask_int = tumor_mask.astype(np.uint8)
-
-        # Debugging: Print the mask data type and values after conversion
-        print("\nDebugging Mask After Conversion:")
-        print("Mask data type:", tumor_mask_int.dtype)
-        print("Mask unique values after conversion:", np.unique(tumor_mask_int))
-
-        # Create and save the NIfTI image
-        tumor_img = nib.Nifti1Image(tumor_mask_int, reference_img.affine)
+        original_affine = reference_img.affine # Get the original affine matrix
+        scale_factors = np.array(tumor_mask.shape) / np.array(reference_img.shape[:3]) # Calculate the scaling factors
+        
+        new_affine = original_affine.copy() # Create a new affine matrix with adjusted scaling
+        new_affine[:3, :3] *= scale_factors[:, np.newaxis]  
+        # Create and save the NIfTI image with the new affine matrix
+        tumor_img = nib.Nifti1Image(tumor_mask.astype(np.uint8), new_affine)
         nib.save(tumor_img, output_path)
         print(f"\nGrown tumor mask saved as {output_path}")
 
@@ -552,7 +487,6 @@ class BiologicalModel:
         print("Saved mask affine matrix:\n", saved_mask_img.affine)
         print("Saved mask data shape:", saved_mask_img.get_fdata().shape)
         print("Saved mask unique values:", np.unique(saved_mask_img.get_fdata()))
-
 
     def save_current_mask(self, s_index, t_index):
         slice_idx = int(s_index)
@@ -571,13 +505,18 @@ class BiologicalModel:
                 brain_mask=self.create_brain_mask(self.mri_data['flair'][i, :, :])
             )
             full_tumor_mask[i, :, :] = slice_mask  # Add the slice to the 3D mask
-
+        first_segmentation_name = os.path.basename(self.file_paths['glistrboost'])
+        first_segmentation_name = os.path.splitext(first_segmentation_name)[0]
+        current_date = datetime.now().strftime("%Y%m%d")
+        output_filename = f"{first_segmentation_name}_grown_{current_date}.nii"
+        
         # Debugging: Print the shape of the full 3D mask
         print("\nDebugging Full 3D Tumor Mask Shape:")
         print("Full tumor mask shape:", full_tumor_mask.shape)
 
         # Save the full 3D mask using the FLAIR image as the reference
-        output_path = f"grown_tumor_mask_time_{time_step}.nii"
+        # output_path = f"grown_tumor_mask_time_{time_step}.nii"
+        output_path = os.path.join(os.path.dirname(self.file_paths['flair']), output_filename)
         reference_nii_path = self.file_paths['flair']  # Use FLAIR as the reference image
         self.save_tumor_mask_as_nii(full_tumor_mask, reference_nii_path, output_path)
 
