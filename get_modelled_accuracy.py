@@ -2,7 +2,8 @@ import nibabel as nib
 import numpy as np
 from skimage.transform import resize
 from scipy.spatial.distance import directed_hausdorff
-
+import os 
+import glob
 def load_tumor_mask(path_to_nii):
     tumor_mask = nib.load(path_to_nii)
     binary_mask = tumor_mask.get_fdata() > 0
@@ -59,13 +60,21 @@ def balanced_average_hausdorff(modelled_tumor, actual_tumor):
 
     return BAHD
 
-
 # main code
-modelled_tumor = load_tumor_mask(r"")
-actual_tumor = load_tumor_mask(r"")
-resized_modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
-print(f"Sensitivity: {sensitivity(resized_modelled_tumor, actual_tumor)}")
-print(f"DSC: {dice_similarity_coeff(resized_modelled_tumor, actual_tumor)}")
-print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(resized_modelled_tumor, actual_tumor)}mm")
+output_folder = r'output'
+actual_masks_folder = r'P:\UCSF_POSTOP_GLIOMA_DATASET_FINAL_v1.0'
+output_files = os.listdir(output_folder)
+# Extract 6-digit IDs from filenames
+six_digit_ids = [filename.split("_")[0] for filename in output_files if filename.endswith(".nii")]
 
+for six_digit_id in six_digit_ids:
+    # Construct paths to modelled and actual tumor masks
+    modelled_mask_path = os.path.join(output_folder, f"{six_digit_id}_grown_*.nii")
+    actual_mask_path = os.path.join(actual_masks_folder, f"{six_digit_id}\{six_digit_id}_time2_seg.nii")
 
+    modelled_tumor = load_tumor_mask(r"")
+    actual_tumor = load_tumor_mask(r"")
+    resized_modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
+    print(f"Sensitivity: {sensitivity(resized_modelled_tumor, actual_tumor)}")
+    print(f"DSC: {dice_similarity_coeff(resized_modelled_tumor, actual_tumor)}")
+    print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(resized_modelled_tumor, actual_tumor)}mm")
