@@ -29,6 +29,13 @@ def sensitivity(modelled_tumor, actual_tumor):
     FN = np.sum((modelled_tumor == 0) & (actual_tumor == 1))
     return TP / (TP + FN)
 
+# how much the predicted and actual tumors overlap
+def jaccard_index(modelled_tumor, actual_tumor):
+    TP = np.sum((modelled_tumor == 1) & (actual_tumor == 1))
+    FP = np.sum((modelled_tumor == 1) & (actual_tumor == 0))
+    FN = np.sum((modelled_tumor == 0) & (actual_tumor == 1))
+    return TP / (TP + FP + FN)
+
 # how well the predicted tumor and actual tumors overlap
 # numerator = 2 * number of common tumor voxels (match)
 # denom = number of voels marked as tumor summed in both sets

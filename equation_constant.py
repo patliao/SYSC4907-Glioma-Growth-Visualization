@@ -10,11 +10,11 @@ class EquationConstant:
     SEG2_KEY = 'seg2'
 
     SPATIAL_RESOLUTION = 1.0  # mm
-    NUM_STEPS = 600  # number of steps in time in the model
+    NUM_STEPS = 500  # number of steps in time in the model
 
     GREY_DIFFUSION_RATE = 0.13 # mm^2/day
-    WHITE_DIFFUSION_RATE = 0.65 # Dw = 5Dg (mm^2/day)
-    CSF_DIFFUSION_RATE = 1.95 # Dcsf = 3Dw (mm^2/day)
+    WHITE_DIFFUSION_RATE = 0.65 # Dw > 5Dg (mm^2/day)
+    CSF_DIFFUSION_RATE = 0.01 # (mm^2/day)
 
     DIFFUSION_RATE = WHITE_DIFFUSION_RATE # mm²/day
     REACTION_RATE = 0.012  # per day
