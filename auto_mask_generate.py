@@ -4,6 +4,8 @@ import nibabel as nib
 import numpy as np
 from biological_model import BiologicalModel
 import multiprocessing
+from equation_constant import EquationConstant
+
 def automate_tumor_growth(file_paths, target_days=5, output_dir="output"):
     model = BiologicalModel.instance()
     model.without_app = True
@@ -22,15 +24,14 @@ def automate_tumor_growth(file_paths, target_days=5, output_dir="output"):
     diffusion_map = np.load('diffusion_map.npy')
     print("Diffusion map loaded successfully.")
 
-    time_per_step = model.time_in_days(target_days)  # Time per step in days
-    time_steps = int(target_days / time_per_step) 
-    print(f"Simulating {target_days} days of tumor growth using {time_steps} time steps...")
+    needed_time_steps = int(target_days / EquationConstant.TIME_STEP) 
+    print(f"Simulating {target_days} days of tumor growth using {needed_time_steps} time steps...")
 
     full_tumor_mask = model.simulate_growth(
         initial_tumor_mask,
         diffusion_rate=diffusion_map,
         reaction_rate=model.reaction_rate,
-        time_steps=time_steps,  # Use the calculated number of steps
+        time_steps=needed_time_steps,  # Use the calculated number of steps
         brain_mask=brain_mask 
     )
     os.makedirs(output_dir, exist_ok=True)
@@ -45,9 +46,9 @@ def automate_tumor_growth(file_paths, target_days=5, output_dir="output"):
 
 if __name__ == "__main__":
     file_paths = {
-        'flair': r"\100001\100001_time1_flair.nii.gz",
-        't1': r"\100001\100001_time1_t1.nii.gz",
-        'glistrboost': r"\100001\100001_time1_seg.nii.gz",
-        'seg2': r"\100001\100001_time2_seg.nii.gz"
+        'flair': r"",
+        't1': r"",
+        'glistrboost': r"",
+        'seg2': r""
     }
     automate_tumor_growth(file_paths, target_days=5, output_dir="output")

@@ -169,19 +169,9 @@ class BiologicalModel:
         decay_factor = np.exp(-distance_map / EquationConstant.LAMBDA)
         return decay_factor
 
-    def time_in_days(self, step):
-        max_diffusion = max(
-            EquationConstant.CSF_DIFFUSION_RATE,
-            EquationConstant.GREY_DIFFUSION_RATE,
-            EquationConstant.WHITE_DIFFUSION_RATE
-        )
-        # mean_diffusion = np.mean([
-        #     EquationConstant.CSF_DIFFUSION_RATE,
-        #     EquationConstant.GREY_DIFFUSION_RATE,
-        #     EquationConstant.WHITE_DIFFUSION_RATE
-        # ])
-        time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
-        return step * time_step
+    def time_in_days(self, slider_position):
+        total_time = EquationConstant.TIME_STEP * slider_position
+        return total_time
 
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
     def interactive_growth_visualization_2(self, mri_data, cur_scan):
