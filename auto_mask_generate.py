@@ -55,7 +55,7 @@ def automate_tumor_growth(file_paths, target_days, output_dir="output"):
     first_segmentation_name = os.path.basename(file_paths['glistrboost'])
     first_segmentation_name = os.path.splitext(first_segmentation_name)[0]
     current_date = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"{first_segmentation_name}_grown_{current_date}.nii"
+    output_filename = f"{first_segmentation_name}_at_{target_days}_on_{current_date}.nii"
     output_path = os.path.join(output_dir, output_filename)
 
     model.save_tumor_mask_as_nii(full_tumor_mask, file_paths['flair'], output_path)
