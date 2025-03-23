@@ -78,7 +78,6 @@ class BiologicalModel:
     def set_reaction_rate(self, reaction_rate):
         self.reaction_rate = reaction_rate
 
-
     def get_file_paths(self):
         file_paths = {}
 
@@ -333,7 +332,6 @@ class BiologicalModel:
             self.mri_data['seg2'][:, :, slice_idx] > 0,
             self.mri_data[cur_scan].shape[:2]
         )
-
         try:
             # Extract the diffusion map slice dynamically
             self.diffusion_map_sagittal = self.diffusion_map[slice_idx, :, :]  # sagittal
@@ -367,7 +365,6 @@ class BiologicalModel:
                                                                diffusion_rate=self.diffusion_rate,
                                                                reaction_rate=self.reaction_rate, time_steps=time_step,
                                                                brain_mask=self.brain_mask_axial)
-
         # Apply tumor overlays
         if overlay:
             self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 0] = 1
@@ -513,9 +510,6 @@ class BiologicalModel:
         # Debugging: Print the shape of the full 3D mask
         print("\nDebugging Full 3D Tumor Mask Shape:")
         print("Full tumor mask shape:", full_tumor_mask.shape)
-
-        # Save the full 3D mask using the FLAIR image as the reference
-        # output_path = f"grown_tumor_mask_time_{time_step}.nii"
         output_path = os.path.join(os.path.dirname(self.file_paths['flair']), output_filename)
         reference_nii_path = self.file_paths['flair']  # Use FLAIR as the reference image
         self.save_tumor_mask_as_nii(full_tumor_mask, reference_nii_path, output_path)
