@@ -95,7 +95,7 @@ model.load_state_dict(torch.load("glioma_unet3d_final.pth", map_location=device)
 model.eval()  # Set the model to evaluation mode
 
 # Prepare the test data
-test_patients = ["100118", "100121"]
+test_patients = ["100118", "100121","100016","100017","100019"]
 
 for test_patient in test_patients:
     print(f"Processing test patient: {test_patient}")
