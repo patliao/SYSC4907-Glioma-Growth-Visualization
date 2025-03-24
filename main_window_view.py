@@ -17,6 +17,7 @@ if platform.system() == "Darwin":
 
 import os.path
 from PyQt5.QtWidgets import QApplication
+from UIUsedAIPrediction import UIUsedAIPrediction
 
 class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
     def __init__(self, controller):
@@ -56,6 +57,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1gd_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T1GD_KEY))
         self.t2_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T2_KEY))
         self.seg_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.SEG2_KEY))
+        self.flair2_file_button.clicked.connect(lambda: self.selected_file_clicked("flair 2"))
 
         self.flair_rb.toggled.connect(self.update_plt)
         self.t1_rb.toggled.connect(self.update_plt)
@@ -105,6 +107,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             self.t2_file_label.setText(file_name)
         elif label_key == EquationConstant.SEG2_KEY:
             self.seg2_file_label.setText(file_name)
+        else:
+            self.flair2_file_label.setText(file_name)
 
     def file_select_dialog(self):
         dlg = QFileDialog()
@@ -131,13 +135,21 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
                                                      f" white matter diffusion rate {white_diff},"
                                                      f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
 
+    # def start_equation(self):
+    #     t1_path = r"C:\Users\rui\Desktop\SYSC4907\SYSC4907-Glioma-Growth-Visualization\100001\100001_time1_flair.nii.gz"
+    #     t2_path = r"C:\Users\rui\Desktop\SYSC4907\SYSC4907-Glioma-Growth-Visualization\100001\100001_time1_flair.nii.gz"
+    #     index = 75
+    #     result = UIUsedAIPrediction().instance().predict_using_ai(t1_path, t2_path, index)
+    #     sag_height, sag_width= result.shape
+    #     sag_Image = QImage(result.data, sag_width, sag_height, QImage.Format_RGB888)
+    #     self.sagittal_image_label.setPixmap(QPixmap.fromImage(sag_Image))
+
 
     def update_image_display(self):
         self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
                                              self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
 
     def check_files(self):
-        # TODO: Simple check, need to be updated!
         returned_val = False
         msg = ""
         if  self.flair_file_label.text() == "":
@@ -150,6 +162,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             msg = "Missing T1GD File"
         elif self.t2_file_label.text() == "":
             msg = "Missing T2 File"
+        elif self.seg2_file_label.text() == "":
+            msg = "Missing segment 2 File"
+        elif self.flair2_file_label.text() == "":
+            msg = "Missing flair 2 File"
         else:
             returned_val = True
         if not returned_val:
@@ -296,6 +312,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
                     self.update_selected_file_info(EquationConstant.T2_KEY, file_path, filename)
                 elif filename.__contains__("time2_seg.nii"):
                     self.update_selected_file_info(EquationConstant.SEG2_KEY, file_path, filename)
+                elif filename.__contains__("time2_flair.nii"):
+                    self.update_selected_file_info("flair 2", file_path, filename)
         except:
             print("Auto Selection Fail!")
 
