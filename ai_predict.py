@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
 # Define the base directory
-# base_dir = r"D:\cap\SYSC4907-Glioma-Growth-Visualization\data"
-base_dir = r"C:\Users\rui\Desktop\SYSC4907\SYSC4907-Glioma-Growth-Visualization\data"
+base_dir = r"D:\cap\SYSC4907-Glioma-Growth-Visualization\data"
 
 # Function to load a .nii file
 def load_nii_file(file_path):
