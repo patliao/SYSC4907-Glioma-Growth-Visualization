@@ -102,15 +102,15 @@ class MainWindowController:
             # axi[axi_ai_mask] = [0, 0, 255]
             axi[axi_ai_mask] = [176, 242, 70]
         if mixed and ((show_eq and overlay) or show_real or show_ai):
-            if show_eq and show_real and show_ai:
+            if (show_eq and overlay) and show_real and show_ai:
                 sag[sag_eq_mask & sag_real_mask] = [255, 255, 0]
                 cor[cor_eq_mask & cor_real_mask] = [255, 255, 0]
                 axi[axi_eq_mask & axi_real_mask & axi_ai_mask] = [255, 255, 255]
-            elif show_eq and show_real:
+            elif (show_eq and overlay) and show_real:
                 sag[sag_eq_mask & sag_real_mask] = [255, 255, 0]
                 cor[cor_eq_mask & cor_real_mask] = [255, 255, 0]
                 axi[axi_eq_mask & axi_real_mask] = [255, 255, 0]
-            elif show_eq and show_ai:
+            elif (show_eq and overlay) and show_ai:
                 axi[axi_eq_mask & axi_ai_mask] = [255, 0, 255]
             elif show_real and show_ai:
                 axi[axi_real_mask & axi_ai_mask] = [0, 255, 255]
