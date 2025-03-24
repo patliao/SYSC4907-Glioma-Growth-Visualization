@@ -68,9 +68,9 @@ class MainWindowController:
     def update_image_color(self, show_eq, show_real, show_ai, mixed, overlay):
         # TODO: Need to update for AI
 
-        sag = self.equation_pred.get(EquationConstant.SAG)
-        cor = self.equation_pred.get(EquationConstant.COR)
-        axi = self.equation_pred.get(EquationConstant.AXI)
+        sag = self.equation_pred.get(EquationConstant.SAG).copy()
+        cor = self.equation_pred.get(EquationConstant.COR).copy()
+        axi = self.equation_pred.get(EquationConstant.AXI).copy()
         if show_eq and overlay:
             sag_eq_mask = self.equation_mask.get(EquationConstant.SAG) == 1
             sag[sag_eq_mask] = [255, 0, 0]
