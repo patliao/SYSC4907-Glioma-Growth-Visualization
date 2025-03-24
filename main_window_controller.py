@@ -30,17 +30,17 @@ class MainWindowController:
             cls._instance = MainWindowController()
         return cls._instance
 
-    def run_equation_model(self, diffusion, reaction, grey_diff, white_diff, scan):
+    # def run_equation_model(self, diffusion, reaction, grey_diff, white_diff, scan):
+    #
+    #     self.equation_model.set_csf_diffusion_rate(diffusion)
+    #     self.equation_model.set_reaction_rate(reaction)
+    #     resultFig, cur_slice_index, max_slices = self.equation_model.start_equation(scan, grey_diff, white_diff)
+    #     self.view.init_sliders(cur_slice_index, max_slices)
+    #     self.view.update_equation_graph(resultFig)
+    #     # self.update_ui.emit(resultFig)
 
-        self.equation_model.set_csf_diffusion_rate(diffusion)
-        self.equation_model.set_reaction_rate(reaction)
-        resultFig, cur_slice_index, max_slices = self.equation_model.start_equation(scan, grey_diff, white_diff)
-        self.view.init_sliders(cur_slice_index, max_slices)
-        self.view.update_equation_graph(resultFig)
-        # self.update_ui.emit(resultFig)
 
-
-    def start_prediction(self, reaction, csf_diff, grey_diff, white_diff, scan, show_eq, show_real, show_ai, mixed):
+    def start_prediction(self, reaction, csf_diff, grey_diff, white_diff, scan, show_eq, show_real, show_ai, mixed, is_overlay):
         # TODO: Need to update for AI
         self.equation_model.set_csf_diffusion_rate(csf_diff)
         self.equation_model.set_reaction_rate(reaction)
@@ -49,7 +49,7 @@ class MainWindowController:
         self.equation_mask = self.reformat_data(eq_mask, True)
         self.real_mask = self.reformat_data(real_mask, True)
         self.view.init_sliders(cur_slice_index, max_slices)
-        self.update_image_display(show_eq, show_real, show_ai, mixed)
+        self.update_image_display(show_eq, show_real, show_ai, mixed, is_overlay)
 
     def reformat_data(self, eq_dat, is_mask):
         for partial_data in eq_dat:
@@ -59,17 +59,19 @@ class MainWindowController:
                 eq_dat[partial_data] = np.clip(eq_dat.get(partial_data) * 255, 0, 255).astype(np.uint8)
         return eq_dat
 
-    def update_image_display(self, show_eq, show_real, show_ai, mixed):
-        sag, cor, axi = self.update_image_color(show_eq, show_real, show_ai, mixed)
+    def update_image_display(self, show_eq, show_real, show_ai, mixed, overlay):
+        if self.equation_pred is None or self.equation_mask is None:
+            return
+        sag, cor, axi = self.update_image_color(show_eq, show_real, show_ai, mixed, overlay)
         self.view.update_plot(sag, cor, axi)
 
-    def update_image_color(self, show_eq, show_real, show_ai, mixed):
+    def update_image_color(self, show_eq, show_real, show_ai, mixed, overlay):
         # TODO: Need to update for AI
 
         sag = self.equation_pred.get(EquationConstant.SAG)
         cor = self.equation_pred.get(EquationConstant.COR)
         axi = self.equation_pred.get(EquationConstant.AXI)
-        if show_eq:
+        if show_eq and overlay:
             sag_eq_mask = self.equation_mask.get(EquationConstant.SAG) == 1
             sag[sag_eq_mask] = [255, 0, 0]
             cor_eq_mask = self.equation_mask.get(EquationConstant.COR) == 1
@@ -99,9 +101,6 @@ class MainWindowController:
             else:
                 returned_mask[img_key] = mask1.get(img_key) and mask2.get(img_key)
 
-
-
-
     def set_selected_file(self, file_key, file_path):
         self.equation_model.update_file_paths(file_key, file_path)
 
@@ -111,7 +110,7 @@ class MainWindowController:
         self.equation_pred = self.reformat_data(eq_pred, False)
         self.equation_mask = self.reformat_data(eq_mask, True)
         self.real_mask = self.reformat_data(real_mask, True)
-        self.update_image_display(show_eq, show_real, show_ai, mixed)
+        self.update_image_display(show_eq, show_real, show_ai, mixed, is_overlay)
 
         time_day = int(self.equation_model.time_in_days(time_i))
         self.view.update_slider_value_labels(time_day)

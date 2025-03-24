@@ -76,7 +76,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.reset_button.clicked.connect(self.reset_equation)
 
         self.auto_selection()
-        # self.testQImage()
 
         self.show()
 
@@ -126,18 +125,16 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             # self.controller.run_equation_model(diffusion, reaction, grey_diff, white_diff, self.get_cur_scan())
             self.controller.start_prediction(reaction, csf_diff, grey_diff, white_diff, self.get_cur_scan(),
                                              self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
-                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
             self.disable_by_start(True)
             self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {csf_diff},"
                                                      f" white matter diffusion rate {white_diff},"
                                                      f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
-            #
-            # self.controller.set_before_run(diffusion, reaction, self.get_cur_scan())
-            # self.controller.start()
+
 
     def update_image_display(self):
         self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
-                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
 
     def check_files(self):
         # TODO: Simple check, need to be updated!
@@ -202,6 +199,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.controller.process_plts(scan, slice_i, time_i, is_overlay,  self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
                                              self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
 
+    def toggle_overlay(self):
+        self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
+
     def get_cur_scan(self):
         if self.t1_rb.isChecked():
             scan = 't1'
@@ -252,40 +253,11 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.equation_layout.addWidget(self.canvas)
 
-        # a, (fig[0], fig[1], fig[2]) = plt.subplots(1, 3, figsize=(14, 7))
-        # a.subplots_adjust(left=0.25, bottom=0.35)
-
         if self.equation_layout.count() > 0:
             self.equation_layout.removeWidget(self.equation_layout.itemAt(0).widget())
         self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
         # self.equation_layout.addWidget(FigureCanvasQTAgg(a))
         self.process_info_label.hide()
-
-    def testQImage(self):
-        print("testQImage")
-        loadData = np.load('rgb_sagittal.npy')
-        loadData = np.flipud(loadData)
-        loadData = np.ascontiguousarray(loadData)
-        height, width, slices = loadData.shape
-        loadData = np.clip(loadData * 255, 0, 255).astype(np.uint8)
-        print("create image")
-        segData = np.load('seg2.npy').T
-        segData = np.flipud(segData)
-        segData = np.ascontiguousarray(segData)
-        overlap = segData == 1
-        print("segData", segData)
-        loadData[overlap] = [255, 0, 0]
-        qImage = QImage(loadData.data, width, height, 3*width, QImage.Format_RGB888)
-        print("finish create image")
-        label =  QLabel()
-        label.setPixmap(QPixmap.fromImage(qImage))
-        print("finish label")
-        # self.sagittal_image_label.setPixmap(QPixmap.fromImage(qImage))
-        self.verticalLayout_6.addWidget(label)
-        print("set pixmap")
-
-        # plt.imshow(loadData, origin='upper')
-        # plt.show()
 
     def update_plot(self, sag, cor, axi):
         sag_height, sag_width, sag_channel = sag.shape
