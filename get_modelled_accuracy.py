@@ -2,8 +2,8 @@ import nibabel as nib
 import numpy as np
 from skimage.transform import resize
 from scipy.spatial.distance import directed_hausdorff
-import os 
-import glob
+import os
+
 def load_tumor_mask(path_to_nii):
     tumor_mask = nib.load(path_to_nii)
     binary_mask = tumor_mask.get_fdata() > 0
@@ -39,7 +39,7 @@ def jaccard_index(modelled_tumor, actual_tumor):
 
 # how well the predicted tumor and actual tumors overlap
 # numerator = 2 * number of common tumor voxels (match)
-# denom = number of voels marked as tumor summed in both sets
+# denom = number of voxels marked as tumor summed in both sets
 def dice_similarity_coeff(modelled_tumor, actual_tumor):
     common_tumor_cells = np.sum(modelled_tumor * actual_tumor)
     total_predicted_cells = np.sum(modelled_tumor)
@@ -68,20 +68,39 @@ def balanced_average_hausdorff(modelled_tumor, actual_tumor):
     return BAHD
 
 # main code
-output_folder = r'output'
-actual_masks_folder = r'P:\UCSF_POSTOP_GLIOMA_DATASET_FINAL_v1.0'
-output_files = os.listdir(output_folder)
-# Extract 6-digit IDs from filenames
-six_digit_ids = [filename.split("_")[0] for filename in output_files if filename.endswith(".nii")]
+# modelled_tumor = load_tumor_mask(r"")
+# actual_tumor = load_tumor_mask(r"")
+# resized_modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
+# print(f"Sensitivity: {sensitivity(resized_modelled_tumor, actual_tumor)}")
+# print(f"JI: {jaccard_index(resized_modelled_tumor, actual_tumor)}")
+# print(f"DSC: {dice_similarity_coeff(resized_modelled_tumor, actual_tumor)}")
+# print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(resized_modelled_tumor, actual_tumor)}mm")
 
-for six_digit_id in six_digit_ids:
-    # Construct paths to modelled and actual tumor masks
-    modelled_mask_path = os.path.join(output_folder, f"{six_digit_id}_grown_*.nii")
-    actual_mask_path = os.path.join(actual_masks_folder, f"{six_digit_id}\{six_digit_id}_time2_seg.nii")
+output_dir = "output"
+patient_data_dir = "UCSF_POSTOP_GLIOMA_DATASET_FINAL_v1.0"
 
-    modelled_tumor = load_tumor_mask(r"")
-    actual_tumor = load_tumor_mask(r"")
-    resized_modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
-    print(f"Sensitivity: {sensitivity(resized_modelled_tumor, actual_tumor)}")
-    print(f"DSC: {dice_similarity_coeff(resized_modelled_tumor, actual_tumor)}")
-    print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(resized_modelled_tumor, actual_tumor)}mm")
+for filename in os.listdir(output_dir):
+    modelled_growth_file_path = os.path.join(output_dir, filename)
+    print(f"Using modelled tumor file: {modelled_growth_file_path}")
+    output_filename_info = filename.split("_")
+    patient_id = output_filename_info[0]
+
+    patient_folder_path = os.path.join(patient_data_dir, patient_id)
+    for f in os.listdir(patient_folder_path):
+        if f.endswith("time2_seg.nii.gz"):
+            actual_progressed_tumor_file = os.path.join(patient_folder_path, f)
+            print(f"Using actual tumor file: {actual_progressed_tumor_file}")
+            break
+    
+    try:
+        modelled_tumor = load_tumor_mask(modelled_growth_file_path)
+        actual_tumor = load_tumor_mask(actual_progressed_tumor_file)
+        modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
+
+        print(f"Sensitivity: {sensitivity(modelled_tumor, actual_tumor)}")
+        print(f"JI: {jaccard_index(modelled_tumor, actual_tumor)}")
+        print(f"DSC: {dice_similarity_coeff(modelled_tumor, actual_tumor)}")
+        print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(modelled_tumor, actual_tumor)}mm")
+
+    except Exception as e:
+            print(f"Error processing {patient_id}: {e}")

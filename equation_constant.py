@@ -14,7 +14,7 @@ class EquationConstant:
 
     GREY_DIFFUSION_RATE = 0.13 # mm^2/day
     WHITE_DIFFUSION_RATE = 0.65 # Dw > 5Dg (mm^2/day)
-    CSF_DIFFUSION_RATE = 0.01 # (mm^2/day)
+    CSF_DIFFUSION_RATE = 0.01 # ~0 (mm^2/day)
 
     DIFFUSION_RATE = WHITE_DIFFUSION_RATE # mm²/day
     REACTION_RATE = 0.012  # per day
