@@ -32,3 +32,8 @@ class EquationConstant:
             WHITE_DIFFUSION_RATE
         )
     TIME_STEP = (SPATIAL_RESOLUTION ** 2) / (2 * 3 * MAX_DIFFUSION)
+
+    SAG = "sag"
+    COR = "cor"
+    AXI = "axi"
+
