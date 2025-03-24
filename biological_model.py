@@ -7,8 +7,7 @@ from tkinter.filedialog import askopenfilename
 import platform
 import matplotlib
 import matplotlib.pyplot as plt
-from biologicalInfo import BiologicalInfo
-
+from datetime import datetime
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
 import nibabel as nib
@@ -57,6 +56,9 @@ class BiologicalModel:
         self.diffusion_rate = EquationConstant.DIFFUSION_RATE
         self.reaction_rate = EquationConstant.REACTION_RATE
         self.without_app = False
+        self.csf_diffusion_rate = EquationConstant.CSF_DIFFUSION_RATE
+        self.grey_diffusion_rate = EquationConstant.GREY_DIFFUSION_RATE
+        self.white_diffusion_rate = EquationConstant.WHITE_DIFFUSION_RATE
 
     @classmethod
     def instance(cls):
@@ -67,15 +69,14 @@ class BiologicalModel:
     def get_diffusion_rate(self):
         return self.diffusion_rate
 
-    def set_diffusion_rate(self, diffusion_rate):
-        self.diffusion_rate = diffusion_rate
+    def set_csf_diffusion_rate(self, csf_dr):
+        self.csf_diffusion_rate = csf_dr
 
     def get_reaction_rate(self):
         return self.reaction_rate
 
     def set_reaction_rate(self, reaction_rate):
         self.reaction_rate = reaction_rate
-
 
     def get_file_paths(self):
         file_paths = {}
@@ -168,19 +169,9 @@ class BiologicalModel:
         decay_factor = np.exp(-distance_map / EquationConstant.LAMBDA)
         return decay_factor
 
-    def time_in_days(self, step):
-        max_diffusion = max(
-            EquationConstant.CSF_DIFFUSION_RATE,
-            EquationConstant.GREY_DIFFUSION_RATE,
-            EquationConstant.WHITE_DIFFUSION_RATE
-        )
-        # mean_diffusion = np.mean([
-        #     EquationConstant.CSF_DIFFUSION_RATE,
-        #     EquationConstant.GREY_DIFFUSION_RATE,
-        #     EquationConstant.WHITE_DIFFUSION_RATE
-        # ])
-        time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
-        return step * time_step
+    def time_in_days(self, slider_position):
+        total_time = EquationConstant.TIME_STEP * slider_position
+        return total_time
 
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
     def interactive_growth_visualization_2(self, mri_data, cur_scan):
@@ -278,17 +269,18 @@ class BiologicalModel:
         self.ax_coronal.set_facecolor('black')
         self.ax_axial.set_facecolor('black')
         self.fig = fig
-        return fig
-        # return [self.ax_sagittal, self.ax_coronal, self.ax_axial]
+        # return fig
+        return  ({EquationConstant.SAG: self.scan_rgb_sagittal, EquationConstant.COR: self.scan_rgb_coronal, EquationConstant.AXI: self.scan_rgb_axial},
+                {EquationConstant.SAG: self.tumor_overlay_sagittal, EquationConstant.COR: self.tumor_overlay_coronal, EquationConstant.AXI: self.tumor_overlay_axial},
+                {EquationConstant.SAG: self.second_seg_overlay_sagittal, EquationConstant.COR: self.second_seg_overlay_coronal, EquationConstant.AXI: self.second_seg_overlay_axial})
+
 
     def create_brain_mask(self, mri_image):
         brain_mask = mri_image > 0
         return brain_mask
 
-        # Update function for the sliders and toggle
+    # Update function for the sliders and toggle
     def update(self, slice_idx, time_step, overlay, cur_scan):
-        # slice_idx = int(self.slice_slider.val)
-        # time_step = int(self.time_slider.val)
 
         self.brain_mask_sagittal = self.create_brain_mask(self.mri_data['flair'][slice_idx, :, :])
         self.brain_mask_coronal = self.create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
@@ -333,7 +325,6 @@ class BiologicalModel:
             self.mri_data['seg2'][:, :, slice_idx] > 0,
             self.mri_data[cur_scan].shape[:2]
         )
-
         try:
             # Extract the diffusion map slice dynamically
             self.diffusion_map_sagittal = self.diffusion_map[slice_idx, :, :]  # sagittal
@@ -368,32 +359,35 @@ class BiologicalModel:
                                                                reaction_rate=self.reaction_rate, time_steps=time_step,
                                                                brain_mask=self.brain_mask_axial)
 
-        # Apply tumor overlays
-        if overlay:
-            self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 0] = 1
-            self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 1] = 0
-            self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 2] = 0
+        # # Apply tumor overlays
+        # if overlay:
+        #
+        #     self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 0] = 1
+        #     self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 1] = 0
+        #     self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 2] = 0
+        #
+        #     self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 0] = 1
+        #     self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 1] = 0
+        #     self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 2] = 0
+        #
+        #     self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 0] = 1
+        #     self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 1] = 0
+        #     self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 2] = 0
+        #
+        #     # Apply second segmentation overlays in green
+        #     self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 0] = 0
+        #     self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 1] = 1
+        #     self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 2] = 0
+        #
+        #     self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 0] = 0
+        #     self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 1] = 1
+        #     self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 2] = 0
+        #
+        #     self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 0] = 0
+        #     self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 1] = 1
+        #     self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 2] = 0
 
-            self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 0] = 1
-            self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 1] = 0
-            self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 2] = 0
 
-            self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 0] = 1
-            self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 1] = 0
-            self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 2] = 0
-
-            # Apply second segmentation overlays in green
-            self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 0] = 0
-            self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 1] = 1
-            self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 2] = 0
-
-            self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 0] = 0
-            self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 1] = 1
-            self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 2] = 0
-
-            self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 0] = 0
-            self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 1] = 1
-            self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 2] = 0
 
         # Update the images with the new slice and tumor mask
         self.scan_img_sagittal.set_data(self.scan_rgb_sagittal)
@@ -401,6 +395,11 @@ class BiologicalModel:
         self.scan_img_axial.set_data(self.scan_rgb_axial)
 
         self.fig.canvas.draw_idle()
+
+        # New added
+        return ({EquationConstant.SAG: self.scan_rgb_sagittal, EquationConstant.COR: self.scan_rgb_coronal, EquationConstant.AXI: self.scan_rgb_axial},
+                {EquationConstant.SAG: self.grown_tumor_mask_sagittal.T, EquationConstant.COR: self.grown_tumor_mask_coronal.T, EquationConstant.AXI: self.grown_tumor_mask_axial.T},
+                {EquationConstant.SAG: self.second_segmentation_mask_resized_sagittal.T, EquationConstant.COR: self.second_segmentation_mask_resized_coronal.T, EquationConstant.AXI: self.second_segmentation_mask_resized_axial.T})
 
     def get_max_slice_value(self, mri_data, current_scan):
         mri_shape = mri_data[current_scan].shape
@@ -423,23 +422,25 @@ class BiologicalModel:
         return args
 
     def run_ants_diffusion_map(self, t1_file, grey_d, white_d, diffusion):
-
+        # Run antDiffusionMap in a subprocess
         print("start run another ants")
         subprocess.run([sys.executable, "antDiffusionMap.py", t1_file, str(grey_d), str(white_d), str(diffusion)], check=True)
         print("after subprocess run")
 
     def start_equation(self, cur_scan, grey_diffusion, white_diffusion):
 
+        self.grey_diffusion_rate = grey_diffusion
+        self.white_diffusion_rate = white_diffusion
+
         self.mri_data = self.load_mri_data(self.file_paths)  # Load the MRI data
 
         max_slices = self.get_max_slice_value(self.mri_data, cur_scan) - 1
 
-        # Initialize the interactive visualization
-        # result_queue = multiprocessing.Queue()
+        # ====================== Generate Diffusion Map =========================================
+        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(self.file_paths["t1"],
+                                                                                    grey_diffusion, white_diffusion,
+                                                                                    self.csf_diffusion_rate))
 
-        BiologicalInfo.instance().file_path = self.file_paths["t1"]
-        process = multiprocessing.Process(target=self.run_ants_diffusion_map, args=(BiologicalInfo.instance().file_path,
-                                                                                    grey_diffusion, white_diffusion, self.diffusion_rate))
         process.start()
         print("process start")
         # process.join(timeout=180)
@@ -447,101 +448,38 @@ class BiologicalModel:
 
         print("finish diffusion map")
 
-        BiologicalInfo.instance().diffusion_mask = np.load('diffusion_map.npy')
+        map = np.load('diffusion_map.npy')  # load diffusion map as numpy
 
-        if BiologicalInfo.instance().diffusion_mask is not None:
-            print(f"has diffusion mask: {BiologicalInfo.instance().diffusion_mask}")
+        if map is not None:
+            print(f"has diffusion mask: {map}")
         else:
-            print(f"error diffusion mask: {BiologicalInfo.instance().diffusion_mask}")
-
-        map = BiologicalInfo.instance().diffusion_mask
+            print(f"error diffusion mask: {map}")
+            map = []
+        # ======================= End of Generate Diffusion Map ====================================
 
         self.diffusion_map = np.where( map> 0, map, EquationConstant.DIFFUSION_RATE)
 
-
-        testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
+        # testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
+        pred, pred_mask, real_mask = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
         cur_slice_index = self.sagittal_slice_idx
         print("finish start equation")
-        return testFig, cur_slice_index, max_slices
+        # return testFig, cur_slice_index, max_slices
+
+        return pred, pred_mask, real_mask, cur_slice_index, max_slices
 
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
 
-    def create_diffusion_map(self, t1_image, queue):
-        threshold = 0.5
-        print("Segmenting MRI data (this will take several moments)...")
-
-        t1_image_path = r"{}".format(t1_image)
-        t1_image = ants.image_read(t1_image_path)
-        t1_corrected = ants.n4_bias_field_correction(t1_image)
-        t1_normalized = ants.iMath(t1_corrected, "Normalize")
-
-        brain_mask = ants.get_mask(t1_normalized)
-        refined_mask = ants.iMath(brain_mask, "MD", 2)
-
-        segmentation = ants.atropos(
-            a=t1_normalized,
-            x=refined_mask,
-            i=f'kmeans[5]',
-            m='[0.6,1x1x1]',
-            c='[10,0.01]'
-        )
-
-        print("ants.atropos")
-
-        # Combine clusters for CSF, GM, and WM
-        csf_map = segmentation['probabilityimages'][0] + segmentation['probabilityimages'][1]  # CSF
-        gm_map = segmentation['probabilityimages'][2] + segmentation['probabilityimages'][3]  # GM
-        wm_map = segmentation['probabilityimages'][4]  # WM
-
-        csf_map = ants.threshold_image(csf_map, threshold, 1)
-        gm_map = ants.threshold_image(gm_map, threshold, 1)
-        wm_map = ants.threshold_image(wm_map, threshold, 1)
-
-        csf_data = csf_map.numpy()
-        gm_data = gm_map.numpy()
-        wm_data = wm_map.numpy()
-
-        diffusion_map = np.zeros_like(gm_data)
-        diffusion_map[csf_data > 0] = EquationConstant.CSF_DIFFUSION_RATE
-        diffusion_map[gm_data > 0] = EquationConstant.GREY_DIFFUSION_RATE
-        diffusion_map[wm_data > 0] = EquationConstant.WHITE_DIFFUSION_RATE
-
-        queue.put(diffusion_map.copy())
-        print("ants finish")
-        sys.stdout.flush()
-        # del diffusion_map, t1_image, t1_corrected, t1_normalized, brain_mask, refined_mask, segmentation, csf_map, gm_map, wm_map, csf_data, gm_data, wm_data
-        # gc.collect()
-        # return diffusion_map
-
     def save_tumor_mask_as_nii(self, tumor_mask, reference_nii_path, output_path="grown_tumor_mask.nii"):
-        """Save the grown tumor mask as a .nii file using the affine matrix from the reference image."""
-        # Debugging: Print mask properties before saving
-        print("\nDebugging Mask Properties:")
-        print("Mask shape:", tumor_mask.shape)
-        print("Mask unique values:", np.unique(tumor_mask))
-        print("Mask non-zero voxels:", np.count_nonzero(tumor_mask))
-
         # Load the reference NIfTI image to get its affine matrix
         reference_img = nib.load(reference_nii_path)
-        print("\nDebugging Reference Image Properties:")
-        print("Reference image shape:", reference_img.shape)
-        print("Reference affine matrix:\n", reference_img.affine)
+        original_affine = reference_img.affine # Get the original affine matrix
+        scale_factors = np.array(tumor_mask.shape) / np.array(reference_img.shape[:3]) # Calculate the scaling factors
 
-        # Ensure the mask is in the correct shape and data type
-        if tumor_mask.shape != reference_img.shape:
-            raise ValueError(f"Mask shape {tumor_mask.shape} does not match reference shape {reference_img.shape}.")
-
-        # Convert the binary mask to uint8 (0 and 1)
-        tumor_mask_int = tumor_mask.astype(np.uint8)
-
-        # Debugging: Print the mask data type and values after conversion
-        print("\nDebugging Mask After Conversion:")
-        print("Mask data type:", tumor_mask_int.dtype)
-        print("Mask unique values after conversion:", np.unique(tumor_mask_int))
-
-        # Create and save the NIfTI image
-        tumor_img = nib.Nifti1Image(tumor_mask_int, reference_img.affine)
+        new_affine = original_affine.copy() # Create a new affine matrix with adjusted scaling
+        new_affine[:3, :3] *= scale_factors[:, np.newaxis]
+        # Create and save the NIfTI image with the new affine matrix
+        tumor_img = nib.Nifti1Image(tumor_mask.astype(np.uint8), new_affine)
         nib.save(tumor_img, output_path)
         print(f"\nGrown tumor mask saved as {output_path}")
 
@@ -551,13 +489,6 @@ class BiologicalModel:
         print("Saved mask affine matrix:\n", saved_mask_img.affine)
         print("Saved mask data shape:", saved_mask_img.get_fdata().shape)
         print("Saved mask unique values:", np.unique(saved_mask_img.get_fdata()))
-
-        # Local create_brain_mask for demonstration
-
-    # def create_brain_mask(self, mri_image):
-    #     return mri_image > 0
-
-        # -------- Save Button --------
 
     def save_current_mask(self, s_index, t_index):
         slice_idx = int(s_index)
@@ -576,13 +507,15 @@ class BiologicalModel:
                 brain_mask=self.create_brain_mask(self.mri_data['flair'][i, :, :])
             )
             full_tumor_mask[i, :, :] = slice_mask  # Add the slice to the 3D mask
+        first_segmentation_name = os.path.basename(self.file_paths['glistrboost'])
+        first_segmentation_name = os.path.splitext(first_segmentation_name)[0]
+        current_date = datetime.now().strftime("%Y%m%d")
+        output_filename = f"{first_segmentation_name}_grown_{current_date}.nii"
 
         # Debugging: Print the shape of the full 3D mask
         print("\nDebugging Full 3D Tumor Mask Shape:")
         print("Full tumor mask shape:", full_tumor_mask.shape)
-
-        # Save the full 3D mask using the FLAIR image as the reference
-        output_path = f"grown_tumor_mask_time_{time_step}.nii"
+        output_path = os.path.join(os.path.dirname(self.file_paths['flair']), output_filename)
         reference_nii_path = self.file_paths['flair']  # Use FLAIR as the reference image
         self.save_tumor_mask_as_nii(full_tumor_mask, reference_nii_path, output_path)
 
