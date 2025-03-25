@@ -13,11 +13,11 @@ class EquationConstant:
     NUM_STEPS = 500  # number of steps in time in the model
 
     WHITE_DIFFUSION_RATE = 0.088 # Dw > 5Dg (mm^2/day)
-    GREY_DIFFUSION_RATE = WHITE_DIFFUSION_RATE*5 # mm^2/day
+    GREY_DIFFUSION_RATE = WHITE_DIFFUSION_RATE/5 # mm^2/day
     CSF_DIFFUSION_RATE = 0.01 # ~0 (mm^2/day)
 
     DIFFUSION_RATE = WHITE_DIFFUSION_RATE # mm²/day
-    REACTION_RATE = 0.012  # per day
+    REACTION_RATE = 0.029  # per day
 
     LAMBDA = np.sqrt(WHITE_DIFFUSION_RATE / REACTION_RATE) # infiltration length of glioma cells in white matter (mm)
 
