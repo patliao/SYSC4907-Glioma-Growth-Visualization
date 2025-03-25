@@ -90,7 +90,7 @@
                  <item>
                   <widget class="QPushButton" name="glistrboost_file_button">
                    <property name="text">
-                    <string>Select Glistrboost</string>
+                    <string>Select Segmentation</string>
                    </property>
                   </widget>
                  </item>
@@ -230,7 +230,7 @@
                  <item>
                   <widget class="QPushButton" name="seg_file_button">
                    <property name="text">
-                    <string>Select Segment2</string>
+                    <string>Select Segmentation 2</string>
                    </property>
                   </widget>
                  </item>
@@ -265,7 +265,7 @@
                  <item>
                   <widget class="QPushButton" name="flair2_file_button">
                    <property name="text">
-                    <string>Select flair2</string>
+                    <string>Select Flair 2</string>
                    </property>
                   </widget>
                  </item>
@@ -331,7 +331,7 @@
                 <item>
                  <widget class="QLabel" name="diffusion_rate_label">
                   <property name="text">
-                   <string>Diffusion Rate: </string>
+                   <string>CSF Diffusion Rate: </string>
                   </property>
                  </widget>
                 </item>
