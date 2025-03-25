@@ -95,8 +95,15 @@ model.load_state_dict(torch.load("glioma_unet3d_final.pth", map_location=device)
 model.eval()  # Set the model to evaluation mode
 
 # Prepare the test data
-test_patients = ["100118", "100121","100016","100017","100019"]
-
+test_patients = [
+    "100289",
+    "100290",
+    "100291",
+    "100292",
+    "100295",
+    "100298",
+    "100302"
+]
 for test_patient in test_patients:
     print(f"Processing test patient: {test_patient}")
     
@@ -146,6 +153,7 @@ for test_patient in test_patients:
     nib.save(predicted_nii, output_path)
     print(f"Predicted segmentation saved at: {output_path}")
 
+"""
     # Create a figure and axis for visualization
     fig, ax = plt.subplots(1, 4, figsize=(20, 5))  # 4 columns for FLAIR, T1, T2, and predicted
     plt.subplots_adjust(bottom=0.25)  # Adjust the bottom margin for the slider
@@ -195,4 +203,4 @@ for test_patient in test_patients:
     slice_slider.on_changed(update)
 
     # Show the plot
-    plt.show()
+    plt.show()"""
