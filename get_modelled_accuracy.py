@@ -3,6 +3,7 @@ import numpy as np
 from skimage.transform import resize
 from scipy.spatial.distance import directed_hausdorff
 import os
+import csv
 
 def load_tumor_mask(path_to_nii):
     tumor_mask = nib.load(path_to_nii)
@@ -78,6 +79,7 @@ def balanced_average_hausdorff(modelled_tumor, actual_tumor):
 
 output_dir = "output"
 patient_data_dir = "UCSF_POSTOP_GLIOMA_DATASET_FINAL_v1.0"
+results = []
 
 for filename in os.listdir(output_dir):
     modelled_growth_file_path = os.path.join(output_dir, filename)
@@ -97,10 +99,31 @@ for filename in os.listdir(output_dir):
         actual_tumor = load_tumor_mask(actual_progressed_tumor_file)
         modelled_tumor = assert_mask_shapes_match(modelled_tumor, actual_tumor)
 
-        print(f"Sensitivity: {sensitivity(modelled_tumor, actual_tumor)}")
-        print(f"JI: {jaccard_index(modelled_tumor, actual_tumor)}")
-        print(f"DSC: {dice_similarity_coeff(modelled_tumor, actual_tumor)}")
-        print(f"Balanced Average Hausdorff Distance (BAHD): {balanced_average_hausdorff(modelled_tumor, actual_tumor)}mm")
+        sensitivity_result = sensitivity(modelled_tumor, actual_tumor)
+        ji = jaccard_index(modelled_tumor, actual_tumor)
+        dsc = dice_similarity_coeff(modelled_tumor, actual_tumor)
+        bahd = balanced_average_hausdorff(modelled_tumor, actual_tumor)
+
+        result = {
+            "Patient ID": patient_id,
+            "Sensitivity": sensitivity_result,
+            "Jaccard Index": ji,
+            "Dice Similarity Coefficient": dsc,
+            "Balanced Avg Hausdorff Dist (mm)": bahd
+        }
+        results.append(result)
 
     except Exception as e:
             print(f"Error processing {patient_id}: {e}")
+
+if results:
+    output_csv = "equation_results/modelling_results_Dg0.13_Dw0.65_R0.012.csv"
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+    with open(output_csv, mode='w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+
+    print(f"\nAll results saved to: {output_csv}")
+else:
+    print("No results to write.")
