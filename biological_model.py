@@ -239,23 +239,23 @@ class BiologicalModel:
         self.second_seg_overlay_coronal = self.second_segmentation_mask_resized_coronal.T
         self.second_seg_overlay_axial = self.second_segmentation_mask_resized_axial.T
 
-        # Apply tumor overlays
-        self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 0] = 1
-        self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 1] = 0
-        self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 2] = 0
-
-        # Apply second segmentation overlays in green
-        self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 0] = 0
-        self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 1] = 1
-        self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 2] = 0
-
-        self.scan_rgb_coronal[self.tumor_overlay_coronal, 0] = 1
-        self.scan_rgb_coronal[self.tumor_overlay_coronal, 1] = 0
-        self.scan_rgb_coronal[self.tumor_overlay_coronal, 2] = 0
-
-        self.scan_rgb_axial[self.tumor_overlay_axial, 0] = 1
-        self.scan_rgb_axial[self.tumor_overlay_axial, 1] = 0
-        self.scan_rgb_axial[self.tumor_overlay_axial, 2] = 0
+        # # Apply tumor overlays
+        # self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 0] = 1
+        # self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 1] = 0
+        # self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 2] = 0
+        #
+        # # Apply second segmentation overlays in green
+        # self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 0] = 0
+        # self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 1] = 1
+        # self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 2] = 0
+        #
+        # self.scan_rgb_coronal[self.tumor_overlay_coronal, 0] = 1
+        # self.scan_rgb_coronal[self.tumor_overlay_coronal, 1] = 0
+        # self.scan_rgb_coronal[self.tumor_overlay_coronal, 2] = 0
+        #
+        # self.scan_rgb_axial[self.tumor_overlay_axial, 0] = 1
+        # self.scan_rgb_axial[self.tumor_overlay_axial, 1] = 0
+        # self.scan_rgb_axial[self.tumor_overlay_axial, 2] = 0
 
         self.scan_img_sagittal.set_data(self.scan_rgb_sagittal)
         self.scan_img_coronal.set_data(self.scan_rgb_coronal)
