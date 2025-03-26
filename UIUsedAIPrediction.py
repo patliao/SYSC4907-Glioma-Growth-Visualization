@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from equation_constant import EquationConstant
 
 
 class UNet3D(nn.Module):
@@ -129,18 +130,15 @@ class UIUsedAIPrediction:
         threshold = 0.5
         predicted_segmentation_binary = (predicted_segmentation > threshold).astype(np.float32)
 
-        # counter-clockwise rotate 90 degree to sync with equation model
-        update_result =  np.rot90(predicted_segmentation_binary, 1)
-        self.prediction_result = update_result.copy()
-
-        # pred_slice = predicted_segmentation_binary[:, :, slice_idx]
+        self.prediction_result = predicted_segmentation_binary.copy()
+        self.prediction_result = self.prediction_result == 1
 
         return self.get_slice_prediction(slice_index)
 
     def get_slice_prediction(self, slice_index):
-        result = self.prediction_result[:, :, slice_index].copy()
-
-        return result == 1
+        # result = self.prediction_result[:, :, slice_index].copy()
+        result = self.prediction_result[:, :, :].copy()
+        return {EquationConstant.SAG:result[slice_index, :, :].T, EquationConstant.COR:result[:, slice_index, :].T, EquationConstant.AXI:result[:, :, slice_index].T }
 
     def set_flair1(self, flair):
         self.t1_flair_path = flair

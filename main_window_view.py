@@ -32,15 +32,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
         self.disable_by_start(False)
         self.time_slider.setMaximum(EquationConstant.NUM_STEPS)
-        self.set_input_range_label()
+        # self.set_input_range_label()
 
-        # Restrict user input
-        self.diffusion_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_DIFFUSION, EquationConstant.MAX_DIFFUSION, 1))
-        self.reaction_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_REACTION, EquationConstant.MAX_REACTION, 2))
         # Set user input to default value
         self.set_default_input()
-        # self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
-        # self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
         # Default resize
         self.process_info_label.setMaximumHeight(20)  # Resize processing information label
@@ -178,7 +173,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def reset_equation(self):
         self.disable_by_start(False)
-        self.set_input_range_label()
+        # self.set_input_range_label()
         self.set_default_input()
 
     def save_mask(self):
@@ -190,9 +185,9 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
         self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
-    def set_input_range_label(self):
-        self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
-                                                 f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
+    # def set_input_range_label(self):
+    #     self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
+    #                                              f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
 
     def init_sliders(self, cur_slice, max_slice):
         self.slice_slider.setSliderPosition(cur_slice)
@@ -212,8 +207,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         slice_i = self.slice_slider.value()
         time_i = self.time_slider.value()
         is_overlay = self.toggle_checkbox.isChecked()
-        self.controller.process_plts(scan, slice_i, time_i, is_overlay,  self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
-                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
+        self.controller.process_plots(scan, slice_i, time_i, is_overlay, self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                      self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
 
     def toggle_overlay(self):
         self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
@@ -253,6 +248,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1gd_file_button.setDisabled(disable)
         self.t2_file_button.setDisabled(disable)
         self.seg_file_button.setDisabled(disable)
+        self.flair2_file_button.setDisabled(disable)
 
     def disable_radio_buttons(self, disable):
         self.flair_rb.setDisabled(disable)
@@ -295,9 +291,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         """
         try:
             current_file_path = os.path.dirname(__file__)
-            # parent_path = os.path.split(current_file_path)[0]
-            # testing_files_path = os.path.join(parent_path, "TCGA-HT-8111")
-            testing_files_path = os.path.join(current_file_path, "100001")
+            testing_files_path = os.path.join(current_file_path, "100019")
+            # testing_files_path = os.path.join(current_file_path, "100001")
             for filename in os.listdir(testing_files_path):
                 file_path = os.path.join(testing_files_path, filename)
                 if filename.__contains__("time1_flair.nii"):
@@ -318,29 +313,19 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             print("Auto Selection Fail!")
 
     def get_diffusion(self):
-        diffusion_rate =EquationConstant.DIFFUSION_RATE
+        diffusion_rate =EquationConstant.CSF_DIFFUSION_RATE
         try:
             diffusion_rate = float(self.diffusion_rate_input.text())
-            if diffusion_rate < EquationConstant.MIN_DIFFUSION:
-                diffusion_rate = EquationConstant.MIN_DIFFUSION
-            elif diffusion_rate > EquationConstant.MAX_DIFFUSION:
-                diffusion_rate = EquationConstant.MAX_DIFFUSION
         except:
             pass
-        self.diffusion_rate_input.setText(str(diffusion_rate))
         return diffusion_rate
 
     def get_reaction(self):
-        reaction_rate =EquationConstant.REACTION_RATE
+        reaction_rate = EquationConstant.REACTION_RATE
         try:
             reaction_rate = float(self.reaction_rate_input.text())
-            if reaction_rate < EquationConstant.MIN_REACTION:
-                reaction_rate = EquationConstant.MIN_REACTION
-            elif reaction_rate > EquationConstant.MAX_REACTION:
-                reaction_rate = EquationConstant.MAX_REACTION
         except:
             pass
-        self.reaction_rate_input.setText(str(reaction_rate))
         return reaction_rate
 
     def get_grey_diffusion(self):
