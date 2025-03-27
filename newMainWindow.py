@@ -278,6 +278,7 @@ class Ui_mainWindow(object):
         self.mix_checkBox = QtWidgets.QCheckBox(self.predict_overlap_widget)
         self.mix_checkBox.setObjectName("mix_checkBox")
         self.verticalLayout_8.addWidget(self.mix_checkBox)
+        # self.horizontalLayout_14.addWidget(self.predict_overlap_widget, 0, QtCore.Qt.AlignLeft)
         self.horizontalLayout_14.addWidget(self.predict_overlap_widget)
         self.sagittal_image_label = QtWidgets.QLabel(self.equation_widget)
         self.sagittal_image_label.setText("")

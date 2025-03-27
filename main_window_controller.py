@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+from PyQt5.QtCore import QThread, pyqtSignal
 
 from UIUsedAIPrediction import UIUsedAIPrediction
 from equation_constant import EquationConstant
@@ -8,26 +9,39 @@ from equation_constant import EquationConstant
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))) # for importing from biological_model
 
 from biological_model import BiologicalModel
-from main_window_view import MainWindowView
 
-class MainWindowController:
+class MainWindowController(QThread):
     _instance = None
+    initSliders = pyqtSignal(int, int)
+    updatePlot = pyqtSignal(np.ndarray, np.ndarray, np.ndarray)
+    updateTime = pyqtSignal(int)
+    stopSpinner = pyqtSignal()
 
     def __init__(self):
+        super(MainWindowController, self).__init__()
 
         self.equation_model = BiologicalModel.instance()
         self.ai_predict_model = UIUsedAIPrediction().instance()
-        self.view = MainWindowView(self)
         self.equation_pred = {}
         self.equation_mask = {}
         self.real_mask = {}
         self.ai_predict_mask = {}
+        self.temporal_save = {}
 
     @classmethod
     def instance(cls):
         if cls._instance is None:
             cls._instance = MainWindowController()
         return cls._instance
+
+    def run(self):
+        self.start_prediction(self.temporal_save[0], self.temporal_save[1], self.temporal_save[2], self.temporal_save[3],
+                              self.temporal_save[4], self.temporal_save[5], self.temporal_save[6], self.temporal_save[7],
+                              self.temporal_save[8], self.temporal_save[9])
+        self.stopSpinner.emit()
+
+    def set_temporal(self, reaction, csf_diff, grey_diff, white_diff, scan, show_eq, show_real, show_ai, mixed, is_overlay):
+        self.temporal_save = [reaction, csf_diff, grey_diff, white_diff, scan, show_eq, show_real, show_ai, mixed, is_overlay]
 
     def start_prediction(self, reaction, csf_diff, grey_diff, white_diff, scan, show_eq, show_real, show_ai, mixed, is_overlay):
         self.equation_model.set_csf_diffusion_rate(csf_diff)
@@ -38,7 +52,8 @@ class MainWindowController:
         self.equation_pred = self.reformat_data(eq_pred, False)
         self.equation_mask = self.reformat_data(eq_mask, True)
         self.real_mask = self.reformat_data(real_mask, True)
-        self.view.init_sliders(cur_slice_index, max_slices)
+        # self.view.init_sliders(cur_slice_index, max_slices)
+        self.initSliders.emit(cur_slice_index, max_slices)
         self.update_image_display(show_eq, show_real, show_ai, mixed, is_overlay)
 
     def reformat_data(self, eq_dat, is_mask):
@@ -54,7 +69,8 @@ class MainWindowController:
             if self.equation_pred is None or self.equation_mask is None:
                 return
             sag, cor, axi = self.update_image_color(show_eq, show_real, show_ai, mixed, overlay)
-            self.view.update_plot(sag, cor, axi)
+            # self.view.update_plot(sag, cor, axi)
+            self.updatePlot.emit(sag, cor, axi)
         except:
             print("Something went wrong, probably slice/time index out of range")
 
@@ -129,7 +145,8 @@ class MainWindowController:
         self.update_image_display(show_eq, show_real, show_ai, mixed, is_overlay)
 
         time_day = int(self.equation_model.time_in_days(time_i))
-        self.view.update_slider_value_labels(time_day)
+        # self.view.update_slider_value_labels(time_day)
+        self.updateTime.emit(time_day)
 
     def save_mask(self, s, t):
         self.equation_model.save_current_mask(s, t)

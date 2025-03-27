@@ -394,7 +394,7 @@ class BiologicalModel:
         self.scan_img_coronal.set_data(self.scan_rgb_coronal)
         self.scan_img_axial.set_data(self.scan_rgb_axial)
 
-        self.fig.canvas.draw_idle()
+        # self.fig.canvas.draw_idle()
 
         # New added
         return ({EquationConstant.SAG: self.scan_rgb_sagittal, EquationConstant.COR: self.scan_rgb_coronal, EquationConstant.AXI: self.scan_rgb_axial},
