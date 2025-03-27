@@ -1,7 +1,4 @@
 import sys
-import threading
-import traceback
-
 from PyQt5 import QtWidgets
 
 from main_window_controller import MainWindowController
