@@ -485,8 +485,14 @@
       </widget>
       <widget class="QWidget" name="equation_widget" native="true">
        <layout class="QHBoxLayout" name="horizontalLayout_14">
-        <item>
+        <item alignment="Qt::AlignLeft">
          <widget class="QWidget" name="predict_overlap_widget" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <layout class="QVBoxLayout" name="verticalLayout_8">
            <item>
             <widget class="QCheckBox" name="real_checkBox">

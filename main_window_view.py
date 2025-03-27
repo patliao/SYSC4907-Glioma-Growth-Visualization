@@ -1,8 +1,9 @@
 
 from PyQt5 import QtWidgets, Qt
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QSizePolicy
 from PyQt5.QtGui import QImage, QPixmap, QColor
 from datetime import datetime
+from PyQt5.QtCore import Qt
 
 from typing_extensions import override
 
@@ -22,6 +23,9 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def __init__(self):
         super().__init__()
+        self.setupUi(self)
+
+        # self.setFixedSize(1800, 1200)
         self.controller = MainWindowController.instance()
         self.setupUi(self)
         self.window().setWindowTitle("Glioma Growth Visualization")
@@ -71,7 +75,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
-        # self.start_button.clicked.connect(self.start_spinner)
+
+        self.sagittal_image_label.setScaledContents(True)
+        self.coronal_label_image.setScaledContents(True)
+        self.axial_label_image.setScaledContents(True)
 
         self.spinner = self.createSpinner()
         self.auto_selection()
@@ -80,6 +87,25 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.controller.updatePlot.connect(self.update_plot)
         self.controller.updateTime.connect(self.update_slider_value_labels)
         self.controller.stopSpinner.connect(self.stop_spinner)
+
+        # self.sagittal_image_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        # self.sagittal_image_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        # self.sagittal_image_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.sagittal_image_label.setFixedHeight(160)
+        self.sagittal_image_label.setFixedWidth(240)
+        self.coronal_label_image.setFixedHeight(160)
+        self.coronal_label_image.setFixedWidth(260)
+        self.axial_label_image.setFixedHeight(240)
+        self.axial_label_image.setFixedWidth(240)
+
+        # self.sagittal_image_label.setMinimumSize(160, 240)
+        # self.coronal_label_image.setMinimumSize(160, 240)
+        # self.axial_label_image.setMinimumSize(240, 240)
+        self.sagittal_image_label.setAlignment(Qt.AlignCenter)
+        self.coronal_label_image.setAlignment(Qt.AlignCenter)
+        self.axial_label_image.setAlignment(Qt.AlignCenter)
+
+        self.predict_overlap_widget.setFixedWidth(170)
 
         self.show()
 
@@ -95,6 +121,37 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
                               roundness=100.0, fade=81.0, radius=15, lines=35, line_length=55, line_width=5,
                               speed=1.5707963267948966, color=QColor(142, 159, 255))
 
+    @override
+    def wheelEvent(self, a0):
+        moved_angle = a0.angleDelta().y()
+        if moved_angle < 0:
+            self.resize_image(0.9)
+            print("catch mouse scroll down")
+        elif moved_angle > 0:
+            self.resize_image(1.1)
+            print("catch mouse scroll up")
+
+    def resize_image(self, scale_rate):
+
+        sag_width = self.sagittal_image_label.width()
+        cor_width = self.coronal_label_image.width()
+        axi_width = self.axial_label_image.width()
+        sag_height = self.sagittal_image_label.height()
+        cor_height = self.coronal_label_image.height()
+        axi_height = self.axial_label_image.height()
+        print("eq width =", self.equation_widget.width() - self.predict_overlap_widget.width(), "result: ", (sag_width + cor_width + axi_width) * scale_rate)
+
+        if ((sag_width + cor_width + axi_width) * scale_rate < (self.equation_widget.width() - self.predict_overlap_widget.width()) and
+            axi_height < self.equation_widget.height() and scale_rate > 1) or (scale_rate < 1 and sag_width > 100):
+
+            self.sagittal_image_label.setFixedHeight(int(sag_height * scale_rate))
+            self.sagittal_image_label.setFixedWidth(int(sag_width * scale_rate))
+
+            self.coronal_label_image.setFixedHeight(int(cor_height * scale_rate))
+            self.coronal_label_image.setFixedWidth(int(cor_width * scale_rate))
+
+            self.axial_label_image.setFixedHeight(int(axi_height * scale_rate))
+            self.axial_label_image.setFixedWidth(int(axi_width * scale_rate))
 
     def update_equation_default(self):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
@@ -141,8 +198,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             grey_diff = self.get_grey_diffusion()
             white_diff = self.get_white_diffusion()
             self.disable_by_start(True)
-            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {csf_diff},"
-                                                     f" white matter diffusion rate {white_diff},"
+            self.equation_running_info_label.setText(f"Running Equation Model with CSF diffusion rate {csf_diff},"
+                                                     f" white matter diffusion rate {white_diff},\n"
                                                      f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
             self.spinner.start()
             self.controller.set_temporal(reaction, csf_diff, grey_diff, white_diff, self.get_cur_scan(),
@@ -272,8 +329,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
     def disable_sliders(self, disable):
         self.time_slider.setDisabled(disable)
         self.slice_slider.setDisabled(disable)
-
-
 
     def update_plot(self, sag, cor, axi):
         sag_height, sag_width, sag_channel = sag.shape
