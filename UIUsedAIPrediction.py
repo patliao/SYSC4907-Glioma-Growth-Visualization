@@ -138,7 +138,11 @@ class UIUsedAIPrediction:
     def get_slice_prediction(self, slice_index):
         # result = self.prediction_result[:, :, slice_index].copy()
         result = self.prediction_result[:, :, :].copy()
-        return {EquationConstant.SAG:result[slice_index, :, :].T, EquationConstant.COR:result[:, slice_index, :].T, EquationConstant.AXI:result[:, :, slice_index].T }
+        try:
+            axi = result[:, :, slice_index].T
+        except:
+            axi = np.zeros((240, 240, 3), dtype=np.uint8)
+        return {EquationConstant.SAG:result[slice_index, :, :].T, EquationConstant.COR:result[:, slice_index, :].T,  EquationConstant.AXI: axi}
 
     def set_flair1(self, flair):
         self.t1_flair_path = flair

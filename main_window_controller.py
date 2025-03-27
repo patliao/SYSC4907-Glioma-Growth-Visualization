@@ -74,6 +74,30 @@ class MainWindowController(QThread):
         except:
             print("Something went wrong, probably slice/time index out of range")
 
+    def detail_plots(self):
+        eq_sag = self.equation_pred.get(EquationConstant.SAG).copy()
+        eq_cor = self.equation_pred.get(EquationConstant.COR).copy()
+        eq_axi = self.equation_pred.get(EquationConstant.AXI).copy()
+        ai_sag = self.equation_pred.get(EquationConstant.SAG).copy()
+        ai_cor = self.equation_pred.get(EquationConstant.COR).copy()
+        ai_axi = self.equation_pred.get(EquationConstant.AXI).copy()
+        #eq:
+        sag_eq_mask = self.equation_mask.get(EquationConstant.SAG) == 1
+        eq_sag[sag_eq_mask] = [255, 0, 0]
+        cor_eq_mask = self.equation_mask.get(EquationConstant.COR) == 1
+        eq_cor[cor_eq_mask] = [255, 0, 0]
+        axi_eq_mask = self.equation_mask.get(EquationConstant.AXI) == 1
+        eq_axi[axi_eq_mask] = [255, 0, 0]
+        # ai
+        sag_ai_mask = self.ai_predict_mask.get(EquationConstant.SAG) == 1
+        ai_sag[sag_ai_mask] = [0, 0, 255]
+        cor_ai_mask = self.ai_predict_mask.get(EquationConstant.COR) == 1
+        ai_cor[cor_ai_mask] = [0, 0, 255]
+        axi_ai_mask = self.ai_predict_mask.get(EquationConstant.AXI) == 1
+        ai_axi[axi_ai_mask] = [0, 0, 255]
+
+        return eq_sag, eq_cor, eq_axi, ai_sag, ai_cor, ai_axi
+
     def update_image_color(self, show_eq, show_real, show_ai, mixed, overlay):
 
         sag = self.equation_pred.get(EquationConstant.SAG).copy()
@@ -111,9 +135,11 @@ class MainWindowController(QThread):
                 cor[cor_eq_mask & cor_real_mask] = [255, 255, 0]
                 axi[axi_eq_mask & axi_real_mask] = [255, 255, 0]
             elif (show_eq and overlay) and show_ai:
-                axi[axi_eq_mask & axi_ai_mask] = [255, 0, 255]
-                sag[sag_eq_mask & sag_ai_mask] = [255, 0, 255]
-                cor[cor_eq_mask & cor_ai_mask] = [255, 0, 255]
+                color = [255,204,255]
+                # color = [255, 0, 255]
+                axi[axi_eq_mask & axi_ai_mask] = color
+                sag[sag_eq_mask & sag_ai_mask] = color
+                cor[cor_eq_mask & cor_ai_mask] = color
             elif show_real and show_ai:
                 axi[axi_real_mask & axi_ai_mask] = [0, 255, 255]
                 sag[sag_real_mask & sag_ai_mask] = [0, 255, 255]
@@ -147,6 +173,7 @@ class MainWindowController(QThread):
         time_day = int(self.equation_model.time_in_days(time_i))
         # self.view.update_slider_value_labels(time_day)
         self.updateTime.emit(time_day)
+
 
     def save_mask(self, s, t):
         self.equation_model.save_current_mask(s, t)

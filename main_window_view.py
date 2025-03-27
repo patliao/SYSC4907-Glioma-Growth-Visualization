@@ -11,6 +11,9 @@ from newMainWindow import Ui_mainWindow
 from equation_constant import EquationConstant
 import matplotlib
 import platform
+
+from separateComparison import SeparateComparison
+
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
 
@@ -75,6 +78,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
+        self.separate_button.clicked.connect(self.popup_detail)
 
         self.sagittal_image_label.setScaledContents(True)
         self.coronal_label_image.setScaledContents(True)
@@ -107,7 +111,13 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
         self.predict_overlap_widget.setFixedWidth(170)
 
+        self.detail_popup = None
+
         self.show()
+
+    def popup_detail(self):
+        eq_sag, eq_cor, eq_axi, ai_sag, ai_cor, ai_axi = self.controller.detail_plots()
+        self.detail_popup = SeparateComparison(eq_sag, eq_cor, eq_axi, ai_sag, ai_cor, ai_axi)
 
 
     def start_spinner(self):
@@ -250,10 +260,14 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.controller.save_mask(self.slice_slider.value(), self.time_slider.value())
 
     def set_default_input(self):
-        self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
-        self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
-        self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
-        self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
+        # # TODO: Mannual set the value to the one best fit patient #19
+        self.grey_diffusion_rate_input.setText(str(0.0176))
+        self.white_diffusion_input.setText(str(0.088))
+        self.reaction_rate_input.setText(str(0.029))
+        self.diffusion_rate_input.setText(str(EquationConstant.CSF_DIFFUSION_RATE))
+        # self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
+        # self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
+        # self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
     # def set_input_range_label(self):
     #     self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
@@ -271,7 +285,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
 
     def update_plt(self):
-        self.process_info_label.show()
+        # self.process_info_label.show()
         QApplication.processEvents()
         scan = self.get_cur_scan()
         slice_i = self.slice_slider.value()
@@ -299,6 +313,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
     def disable_by_start(self, has_start):
         self.start_button.setDisabled(has_start)
         self.reset_button.setDisabled(not has_start)
+        self.separate_button.setDisabled(not has_start)
         self.disable_input_lineedit(has_start)
         self.disable_file_selection(has_start)
         self.disable_radio_buttons(not has_start)
@@ -348,7 +363,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         """
         try:
             current_file_path = os.path.dirname(__file__)
-            testing_files_path = os.path.join(current_file_path, "100019")
+            testing_files_path = os.path.join(current_file_path, "100026")
             # testing_files_path = os.path.join(current_file_path, "100001")
             for filename in os.listdir(testing_files_path):
                 file_path = os.path.join(testing_files_path, filename)
