@@ -260,14 +260,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.controller.save_mask(self.slice_slider.value(), self.time_slider.value())
 
     def set_default_input(self):
-        # # TODO: Mannual set the value to the one best fit patient #19
-        self.grey_diffusion_rate_input.setText(str(0.0176))
-        self.white_diffusion_input.setText(str(0.088))
-        self.reaction_rate_input.setText(str(0.029))
         self.diffusion_rate_input.setText(str(EquationConstant.CSF_DIFFUSION_RATE))
-        # self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
-        # self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
-        # self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
+        self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
+        self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
+        self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
     # def set_input_range_label(self):
     #     self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
