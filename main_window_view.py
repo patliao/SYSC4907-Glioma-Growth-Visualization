@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtGui import QImage, QPixmap, QColor
 from datetime import datetime
 
-# from main_window_ui import Ui_mainWindow
 from newMainWindow import Ui_mainWindow
 from equation_constant import EquationConstant
 import matplotlib
@@ -70,14 +69,11 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.reset_button.clicked.connect(self.reset_equation)
         # self.start_button.clicked.connect(self.start_spinner)
 
-        self.controller.initSlider.connect(self.init_sliders)
-        self.controller.updatePlot.connect(self.update_plot)
-
         self.spinner = self.createSpinner()
         self.auto_selection()
 
-        # self.show()
-        self.controller.start()
+        self.show()
+
 
     def start_spinner(self):
         self.spinner.start()
@@ -151,16 +147,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {csf_diff},"
                                                      f" white matter diffusion rate {white_diff},"
                                                      f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
-
-    # def start_equation(self):
-    #     t1_path = r"C:\Users\rui\Desktop\SYSC4907\SYSC4907-Glioma-Growth-Visualization\100001\100001_time1_flair.nii.gz"
-    #     t2_path = r"C:\Users\rui\Desktop\SYSC4907\SYSC4907-Glioma-Growth-Visualization\100001\100001_time1_flair.nii.gz"
-    #     index = 75
-    #     result = UIUsedAIPrediction().instance().predict_using_ai(t1_path, t2_path, index)
-    #     sag_height, sag_width= result.shape
-    #     sag_Image = QImage(result.data, sag_width, sag_height, QImage.Format_RGB888)
-    #     self.sagittal_image_label.setPixmap(QPixmap.fromImage(sag_Image))
-
 
     def update_image_display(self):
         self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
@@ -282,16 +268,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.time_slider.setDisabled(disable)
         self.slice_slider.setDisabled(disable)
 
-    def update_equation_graph(self, fig):
-        self.canvas = FigureCanvasQTAgg(fig)
-        self.toolbar = NavigationToolbar2QT(self.canvas, self)
-        self.equation_layout.addWidget(self.canvas)
-
-        if self.equation_layout.count() > 0:
-            self.equation_layout.removeWidget(self.equation_layout.itemAt(0).widget())
-        self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
-        # self.equation_layout.addWidget(FigureCanvasQTAgg(a))
-        self.process_info_label.hide()
 
     def update_plot(self, sag, cor, axi):
         sag_height, sag_width, sag_channel = sag.shape
