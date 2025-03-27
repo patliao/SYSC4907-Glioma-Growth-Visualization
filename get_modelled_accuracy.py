@@ -87,6 +87,9 @@ for filename in os.listdir(output_dir):
     output_filename_info = filename.split("_")
     patient_id = output_filename_info[0]
 
+    if not patient_id.isdigit():
+        continue
+
     patient_folder_path = os.path.join(patient_data_dir, patient_id)
     for f in os.listdir(patient_folder_path):
         if f.endswith("time2_seg.nii.gz"):
@@ -117,7 +120,7 @@ for filename in os.listdir(output_dir):
             print(f"Error processing {patient_id}: {e}")
 
 if results:
-    output_csv = "equation_results/modelling_results_Dg0.13_Dw0.65_R0.012.csv"
+    output_csv = "equation_results/modelling_results_DgDwdiv5_Dw0.088_R0.029.csv"
     os.makedirs(os.path.dirname(output_csv), exist_ok=True)
     with open(output_csv, mode='w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=results[0].keys())
