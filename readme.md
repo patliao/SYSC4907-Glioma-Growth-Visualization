@@ -29,6 +29,6 @@ The CNN is optimized for medical imaging through the following adaptations:
 ## Conclusions
 
 ## Dataset
-This project could not be possible without the [University of California San Francisco Adult Longitudinal Post-Treatment Diffuse Glioma (UCSF-ALPTDG) MRI Dataset]("https://imagingdatasets.ucsf.edu/dataset/2")
+This project could not be possible without the [University of California San Francisco Adult Longitudinal Post-Treatment Diffuse Glioma (UCSF-ALPTDG) MRI Dataset](https://imagingdatasets.ucsf.edu/dataset/2)
 
 ## References
