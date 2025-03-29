@@ -32,9 +32,9 @@ The CNN is optimized for medical imaging through the following adaptations:
 This project could not be possible without the [University of California San Francisco Adult Longitudinal Post-Treatment Diffuse Glioma (UCSF-ALPTDG) MRI Dataset](https://imagingdatasets.ucsf.edu/dataset/2).
 106 total patients were used for modelling and testing purposes, all with increasing tumors.
 The breakdown of tumor stages for these 106 patients is as follows:
-Grade 1: 1 patients 
-Grade 2: 14 patients 
-Grade 3: 21 patients 
-Grade 4: 70 patients 
+- Grade 1: 1 patients 
+- Grade 2: 14 patients 
+- Grade 3: 21 patients 
+- Grade 4: 70 patients 
 
 ## References
