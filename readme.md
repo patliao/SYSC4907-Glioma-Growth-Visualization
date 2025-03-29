@@ -24,6 +24,8 @@ The CNN is optimized for medical imaging through the following adaptations:
 2. Transfer Learning: The pre-trained layers of ResNet-50 remain frozen to retain learned features, while additional fully connected layers fine-tune the model for glioma classification.
 3. Dataset & Training: The model is trained on longitudinal MRI scans, employing data augmentation, normalization, and resizing to improve generalization. Training strategies include early stopping, learning rate scheduling, and model checkpointing to prevent overfitting.
 
+## How to Run?
+
 ## Results
 
 ## Conclusions
