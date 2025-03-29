@@ -11,12 +11,7 @@ class EquationConstant:
 
     SPATIAL_RESOLUTION = 1.0  # mm
     NUM_STEPS = 500  # number of steps in time in the model
-
-    # GREY_DIFFUSION_RATE = 0.13 # mm^2/day
-    # WHITE_DIFFUSION_RATE = 0.65 # Dw > 5Dg (mm^2/day)
-    # CSF_DIFFUSION_RATE = 0.01 # ~0 (mm^2/day)
-
-    # # TODO: Mannual set the value to the one best fit patient #26
+    
     # self.grey_diffusion_rate_input.setText(str(0.028))
     # self.white_diffusion_input.setText(str(0.14))
     # self.reaction_rate_input.setText(str(0.025))
@@ -25,8 +20,6 @@ class EquationConstant:
     CSF_DIFFUSION_RATE = 0.01  # ~0 (mm^2/day)
 
     DIFFUSION_RATE = WHITE_DIFFUSION_RATE # mm²/day
-    # REACTION_RATE = 0.012  # per day
-    # # TODO: Mannual set the value to the one best fit patient #26
     REACTION_RATE = 0.025  # per day
 
     LAMBDA = np.sqrt(WHITE_DIFFUSION_RATE / REACTION_RATE) # infiltration length of glioma cells in white matter (mm)

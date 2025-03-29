@@ -90,6 +90,12 @@ if __name__ == "__main__":
     # patient_ids, days_between_scans = read_excel_data(excel_path)
     patient_ids, days_between_scans = read_csv_data(csv_path, csv_clinical_path)
     for i in range(len(patient_ids)):
+        patient = f"{patient_ids[i]}"
+        already_done = any(fname.startswith(patient) for fname in os.listdir("output"))
+
+        if already_done:
+            print(f"Skipping {patient_ids[i]} — already processed.")
+            continue
         print(f"Processing patient {patient_ids[i]} with {days_between_scans[i]} days between scans...")
         file_paths = {
         'flair': rf"UCSF_POSTOP_GLIOMA_DATASET_FINAL_v1.0\{patient_ids[i]}\{patient_ids[i]}_time1_flair.nii.gz",
