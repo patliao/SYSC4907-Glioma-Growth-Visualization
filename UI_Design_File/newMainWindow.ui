@@ -90,7 +90,7 @@
                  <item>
                   <widget class="QPushButton" name="glistrboost_file_button">
                    <property name="text">
-                    <string>Select Glistrboost</string>
+                    <string>Select Segmentation</string>
                    </property>
                   </widget>
                  </item>
@@ -230,7 +230,7 @@
                  <item>
                   <widget class="QPushButton" name="seg_file_button">
                    <property name="text">
-                    <string>Select Segment2</string>
+                    <string>Select Segmentation 2</string>
                    </property>
                   </widget>
                  </item>
@@ -265,7 +265,7 @@
                  <item>
                   <widget class="QPushButton" name="flair2_file_button">
                    <property name="text">
-                    <string>Select flair2</string>
+                    <string>Select Flair 2</string>
                    </property>
                   </widget>
                  </item>
@@ -331,7 +331,7 @@
                 <item>
                  <widget class="QLabel" name="diffusion_rate_label">
                   <property name="text">
-                   <string>Diffusion Rate: </string>
+                   <string>CSF Diffusion Rate: </string>
                   </property>
                  </widget>
                 </item>
@@ -457,6 +457,13 @@
                   </property>
                  </widget>
                 </item>
+                <item>
+                 <widget class="QPushButton" name="separate_button">
+                  <property name="text">
+                   <string>Separation View</string>
+                  </property>
+                 </widget>
+                </item>
                </layout>
               </item>
              </layout>
@@ -485,8 +492,14 @@
       </widget>
       <widget class="QWidget" name="equation_widget" native="true">
        <layout class="QHBoxLayout" name="horizontalLayout_14">
-        <item>
+        <item alignment="Qt::AlignLeft">
          <widget class="QWidget" name="predict_overlap_widget" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <layout class="QVBoxLayout" name="verticalLayout_8">
            <item>
             <widget class="QCheckBox" name="real_checkBox">
