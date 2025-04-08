@@ -25,7 +25,11 @@ The CNN is optimized for medical imaging through the following adaptations:
 3. Dataset & Training: The model is trained on longitudinal MRI scans, employing data augmentation, normalization, and resizing to improve generalization. Training strategies include early stopping, learning rate scheduling, and model checkpointing to prevent overfitting.
 
 ## How to Run?
-
+1. Install any Python IDE (VS Code, Pycharm etc) and Python 3
+2. Download the repository
+3. Open the repository inside Python IDE
+4. Navigate to the project directory containing the file in a terminal and run pip install -r requirements.txt
+5. Run app_main.py
 ## Results
 
 ## Conclusions
