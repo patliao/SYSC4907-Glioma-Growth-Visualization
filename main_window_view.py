@@ -1,24 +1,35 @@
-from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
-from PyQt5.QtGui import QDoubleValidator
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
-from datetime import datetime
 
-from main_window_ui import Ui_mainWindow
+from PyQt5 import QtWidgets, Qt
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QSizePolicy
+from PyQt5.QtGui import QImage, QPixmap, QColor
+from datetime import datetime
+from PyQt5.QtCore import Qt
+
+from typing_extensions import override
+
+from newMainWindow import Ui_mainWindow
 from equation_constant import EquationConstant
 import matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import platform
+
+from separateComparison import SeparateComparison
+
 if platform.system() == "Darwin":
     matplotlib.use("Qt5Agg")
 
 import os.path
 from PyQt5.QtWidgets import QApplication
+from pyqtspinner import WaitingSpinner
+from main_window_controller import MainWindowController
 
 class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
-    def __init__(self, controller):
+
+    def __init__(self):
         super().__init__()
-        self.controller = controller
+        self.setupUi(self)
+
+        # self.setFixedSize(1800, 1200)
+        self.controller = MainWindowController.instance()
         self.setupUi(self)
         self.window().setWindowTitle("Glioma Growth Visualization")
 
@@ -28,15 +39,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
         self.disable_by_start(False)
         self.time_slider.setMaximum(EquationConstant.NUM_STEPS)
-        self.set_input_range_label()
+        # self.set_input_range_label()
 
-        # Restrict user input
-        self.diffusion_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_DIFFUSION, EquationConstant.MAX_DIFFUSION, 1))
-        self.reaction_rate_input.setValidator(QDoubleValidator(EquationConstant.MIN_REACTION, EquationConstant.MAX_REACTION, 2))
         # Set user input to default value
         self.set_default_input()
-        # self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
-        # self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
         # Default resize
         self.process_info_label.setMaximumHeight(20)  # Resize processing information label
@@ -53,30 +59,109 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1gd_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T1GD_KEY))
         self.t2_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.T2_KEY))
         self.seg_file_button.clicked.connect(lambda: self.selected_file_clicked(EquationConstant.SEG2_KEY))
+        self.flair2_file_button.clicked.connect(lambda: self.selected_file_clicked("flair 2"))
 
         self.flair_rb.toggled.connect(self.update_plt)
         self.t1_rb.toggled.connect(self.update_plt)
         self.t1gd_rb.toggled.connect(self.update_plt)
         self.t2_rb.toggled.connect(self.update_plt)
 
+        self.equation_checkBox.toggled.connect(self.update_image_display)
+        self.mix_checkBox.toggled.connect(self.update_image_display)
+        self.real_checkBox.toggled.connect(self.update_image_display)
+        self.ai_checkBox.toggled.connect(self.update_image_display)
+
         self.toggle_checkbox.clicked.connect(self.update_plt)
 
         self.slice_slider.sliderMoved.connect(self.update_plt)
-        # self.time_slider.sliderReleased.connect(self.update_plt)
         self.time_slider.sliderMoved.connect(self.update_plt)
 
         self.start_button.clicked.connect(self.start_equation)
         self.reset_button.clicked.connect(self.reset_equation)
+        self.separate_button.clicked.connect(self.popup_detail)
 
+        self.sagittal_image_label.setScaledContents(True)
+        self.coronal_label_image.setScaledContents(True)
+        self.axial_label_image.setScaledContents(True)
 
-        # self.controller.update_ui.connect(self.update_equation_graph)
-
+        self.spinner = self.createSpinner()
         self.auto_selection()
 
-        # self.thread_pool = QThreadPool.globalInstance()
+        self.controller.initSliders.connect(self.init_sliders)
+        self.controller.updatePlot.connect(self.update_plot)
+        self.controller.updateTime.connect(self.update_slider_value_labels)
+        self.controller.stopSpinner.connect(self.stop_spinner)
+
+        # self.sagittal_image_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        # self.sagittal_image_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        # self.sagittal_image_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.sagittal_image_label.setFixedHeight(160)
+        self.sagittal_image_label.setFixedWidth(240)
+        self.coronal_label_image.setFixedHeight(160)
+        self.coronal_label_image.setFixedWidth(260)
+        self.axial_label_image.setFixedHeight(240)
+        self.axial_label_image.setFixedWidth(240)
+
+        # self.sagittal_image_label.setMinimumSize(160, 240)
+        # self.coronal_label_image.setMinimumSize(160, 240)
+        # self.axial_label_image.setMinimumSize(240, 240)
+        self.sagittal_image_label.setAlignment(Qt.AlignCenter)
+        self.coronal_label_image.setAlignment(Qt.AlignCenter)
+        self.axial_label_image.setAlignment(Qt.AlignCenter)
+
+        self.predict_overlap_widget.setFixedWidth(170)
+
+        self.detail_popup = None
 
         self.show()
 
+    def popup_detail(self):
+        eq_sag, eq_cor, eq_axi, ai_sag, ai_cor, ai_axi = self.controller.detail_plots()
+        self.detail_popup = SeparateComparison(eq_sag, eq_cor, eq_axi, ai_sag, ai_cor, ai_axi)
+
+
+    def start_spinner(self):
+        self.spinner.start()
+    def stop_spinner(self):
+        self.spinner.stop()
+
+    def createSpinner(self):
+        # Specific info is generated by using pyqtspinner-conf in terminal
+        return WaitingSpinner(self.centralwidget, center_on_parent=True, disable_parent_when_spinning=True,
+                              roundness=100.0, fade=81.0, radius=15, lines=35, line_length=55, line_width=5,
+                              speed=1.5707963267948966, color=QColor(142, 159, 255))
+
+    @override
+    def wheelEvent(self, a0):
+        moved_angle = a0.angleDelta().y()
+        if moved_angle < 0:
+            self.resize_image(0.9)
+            print("catch mouse scroll down")
+        elif moved_angle > 0:
+            self.resize_image(1.1)
+            print("catch mouse scroll up")
+
+    def resize_image(self, scale_rate):
+
+        sag_width = self.sagittal_image_label.width()
+        cor_width = self.coronal_label_image.width()
+        axi_width = self.axial_label_image.width()
+        sag_height = self.sagittal_image_label.height()
+        cor_height = self.coronal_label_image.height()
+        axi_height = self.axial_label_image.height()
+        print("eq width =", self.equation_widget.width() - self.predict_overlap_widget.width(), "result: ", (sag_width + cor_width + axi_width) * scale_rate)
+
+        if ((sag_width + cor_width + axi_width) * scale_rate < (self.equation_widget.width() - self.predict_overlap_widget.width()) and
+            axi_height < self.equation_widget.height() and scale_rate > 1) or (scale_rate < 1 and sag_width > 100):
+
+            self.sagittal_image_label.setFixedHeight(int(sag_height * scale_rate))
+            self.sagittal_image_label.setFixedWidth(int(sag_width * scale_rate))
+
+            self.coronal_label_image.setFixedHeight(int(cor_height * scale_rate))
+            self.coronal_label_image.setFixedWidth(int(cor_width * scale_rate))
+
+            self.axial_label_image.setFixedHeight(int(axi_height * scale_rate))
+            self.axial_label_image.setFixedWidth(int(axi_width * scale_rate))
 
     def update_equation_default(self):
         self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
@@ -103,6 +188,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             self.t2_file_label.setText(file_name)
         elif label_key == EquationConstant.SEG2_KEY:
             self.seg2_file_label.setText(file_name)
+        else:
+            self.flair2_file_label.setText(file_name)
 
     def file_select_dialog(self):
         dlg = QFileDialog()
@@ -116,21 +203,28 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         if self.check_files():
             self.process_info_label.show()
             QApplication.processEvents()
-            diffusion = self.get_diffusion()
+            csf_diff = self.get_diffusion()
             reaction = self.get_reaction()
             grey_diff = self.get_grey_diffusion()
             white_diff = self.get_white_diffusion()
-            self.controller.run_equation_model(diffusion, reaction, grey_diff, white_diff, self.get_cur_scan())
             self.disable_by_start(True)
-            self.equation_running_info_label.setText(f"Running Equation Model with diffusion rate {diffusion},"
-                                                     f" white matter diffusion rate {white_diff},"
+            self.equation_running_info_label.setText(f"Running Equation Model with CSF diffusion rate {csf_diff},"
+                                                     f" white matter diffusion rate {white_diff},\n"
                                                      f"grey matter diffusion rate {grey_diff} and reaction rate {reaction}")
-            #
-            # self.controller.set_before_run(diffusion, reaction, self.get_cur_scan())
-            # self.controller.start()
+            self.spinner.start()
+            self.controller.set_temporal(reaction, csf_diff, grey_diff, white_diff, self.get_cur_scan(),
+                                             self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
+            self.controller.start()
+            # self.controller.start_prediction(reaction, csf_diff, grey_diff, white_diff, self.get_cur_scan(),
+            #                                  self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+            #                                  self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
+
+    def update_image_display(self):
+        self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
 
     def check_files(self):
-        # TODO: Simple check, need to be updated!
         returned_val = False
         msg = ""
         if  self.flair_file_label.text() == "":
@@ -143,6 +237,10 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
             msg = "Missing T1GD File"
         elif self.t2_file_label.text() == "":
             msg = "Missing T2 File"
+        elif self.seg2_file_label.text() == "":
+            msg = "Missing segment 2 File"
+        elif self.flair2_file_label.text() == "":
+            msg = "Missing flair 2 File"
         else:
             returned_val = True
         if not returned_val:
@@ -155,25 +253,21 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def reset_equation(self):
         self.disable_by_start(False)
-        self.set_input_range_label()
+        # self.set_input_range_label()
         self.set_default_input()
 
     def save_mask(self):
         self.controller.save_mask(self.slice_slider.value(), self.time_slider.value())
 
     def set_default_input(self):
-        self.diffusion_rate_input.setText(str(EquationConstant.DIFFUSION_RATE))
+        self.diffusion_rate_input.setText(str(EquationConstant.CSF_DIFFUSION_RATE))
         self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
         self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
         self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
 
-    def set_input_range_label(self):
-        self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
-                                                 f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
-
-    # def (self):
-    #     value = self.slice_slider.value()
-    #     print(f"slider released {value}")
+    # def set_input_range_label(self):
+    #     self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
+    #                                              f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
 
     def init_sliders(self, cur_slice, max_slice):
         self.slice_slider.setSliderPosition(cur_slice)
@@ -187,13 +281,18 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
 
     def update_plt(self):
-        self.process_info_label.show()
+        # self.process_info_label.show()
         QApplication.processEvents()
         scan = self.get_cur_scan()
         slice_i = self.slice_slider.value()
         time_i = self.time_slider.value()
         is_overlay = self.toggle_checkbox.isChecked()
-        self.controller.process_plts(scan, slice_i, time_i, is_overlay)
+        self.controller.process_plots(scan, slice_i, time_i, is_overlay, self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                      self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
+
+    def toggle_overlay(self):
+        self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
+                                             self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked())
 
     def get_cur_scan(self):
         if self.t1_rb.isChecked():
@@ -210,6 +309,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
     def disable_by_start(self, has_start):
         self.start_button.setDisabled(has_start)
         self.reset_button.setDisabled(not has_start)
+        self.separate_button.setDisabled(not has_start)
         self.disable_input_lineedit(has_start)
         self.disable_file_selection(has_start)
         self.disable_radio_buttons(not has_start)
@@ -229,6 +329,7 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.t1gd_file_button.setDisabled(disable)
         self.t2_file_button.setDisabled(disable)
         self.seg_file_button.setDisabled(disable)
+        self.flair2_file_button.setDisabled(disable)
 
     def disable_radio_buttons(self, disable):
         self.flair_rb.setDisabled(disable)
@@ -240,19 +341,17 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.time_slider.setDisabled(disable)
         self.slice_slider.setDisabled(disable)
 
-    def update_equation_graph(self, fig):
-        self.canvas = FigureCanvasQTAgg(fig)
-        self.toolbar = NavigationToolbar2QT(self.canvas, self)
-        self.equation_layout.addWidget(self.canvas)
+    def update_plot(self, sag, cor, axi):
+        sag_height, sag_width, sag_channel = sag.shape
+        self.sag_Image = QImage(sag.data, sag_width, sag_height, sag_channel * sag_width, QImage.Format_RGB888)
+        self.sagittal_image_label.setPixmap(QPixmap.fromImage(self.sag_Image))
 
-        # a, (fig[0], fig[1], fig[2]) = plt.subplots(1, 3, figsize=(14, 7))
-        # a.subplots_adjust(left=0.25, bottom=0.35)
-
-        if self.equation_layout.count() > 0:
-            self.equation_layout.removeWidget(self.equation_layout.itemAt(0).widget())
-        self.equation_layout.addWidget(FigureCanvasQTAgg(fig))
-        # self.equation_layout.addWidget(FigureCanvasQTAgg(a))
-        self.process_info_label.hide()
+        cor_height, cor_width, cor_channel = cor.shape
+        self.cor_Image = QImage(cor.data, cor_width, cor_height, cor_channel * cor_width, QImage.Format_RGB888)
+        self.coronal_label_image.setPixmap(QPixmap.fromImage(self.cor_Image))
+        axi_height, axi_width, axi_channel = axi.shape
+        self.axi_Image = QImage(axi.data, axi_width, axi_height, axi_channel * axi_width, QImage.Format_RGB888)
+        self.axial_label_image.setPixmap(QPixmap.fromImage(self.axi_Image))
 
     def auto_selection(self):
         """
@@ -260,9 +359,8 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         """
         try:
             current_file_path = os.path.dirname(__file__)
-            # parent_path = os.path.split(current_file_path)[0]
-            # testing_files_path = os.path.join(parent_path, "TCGA-HT-8111")
-            testing_files_path = os.path.join(current_file_path, "100001")
+            testing_files_path = os.path.join(current_file_path, "100026")
+            # testing_files_path = os.path.join(current_file_path, "100001")
             for filename in os.listdir(testing_files_path):
                 file_path = os.path.join(testing_files_path, filename)
                 if filename.__contains__("time1_flair.nii"):
@@ -277,33 +375,25 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
                     self.update_selected_file_info(EquationConstant.T2_KEY, file_path, filename)
                 elif filename.__contains__("time2_seg.nii"):
                     self.update_selected_file_info(EquationConstant.SEG2_KEY, file_path, filename)
+                elif filename.__contains__("time2_flair.nii"):
+                    self.update_selected_file_info("flair 2", file_path, filename)
         except:
             print("Auto Selection Fail!")
 
     def get_diffusion(self):
-        diffusion_rate =EquationConstant.DIFFUSION_RATE
+        diffusion_rate =EquationConstant.CSF_DIFFUSION_RATE
         try:
             diffusion_rate = float(self.diffusion_rate_input.text())
-            if diffusion_rate < EquationConstant.MIN_DIFFUSION:
-                diffusion_rate = EquationConstant.MIN_DIFFUSION
-            elif diffusion_rate > EquationConstant.MAX_DIFFUSION:
-                diffusion_rate = EquationConstant.MAX_DIFFUSION
         except:
             pass
-        self.diffusion_rate_input.setText(str(diffusion_rate))
         return diffusion_rate
 
     def get_reaction(self):
-        reaction_rate =EquationConstant.REACTION_RATE
+        reaction_rate = EquationConstant.REACTION_RATE
         try:
             reaction_rate = float(self.reaction_rate_input.text())
-            if reaction_rate < EquationConstant.MIN_REACTION:
-                reaction_rate = EquationConstant.MIN_REACTION
-            elif reaction_rate > EquationConstant.MAX_REACTION:
-                reaction_rate = EquationConstant.MAX_REACTION
         except:
             pass
-        self.reaction_rate_input.setText(str(reaction_rate))
         return reaction_rate
 
     def get_grey_diffusion(self):

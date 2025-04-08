@@ -169,19 +169,9 @@ class BiologicalModel:
         decay_factor = np.exp(-distance_map / EquationConstant.LAMBDA)
         return decay_factor
 
-    def time_in_days(self, step):
-        max_diffusion = max(
-            EquationConstant.CSF_DIFFUSION_RATE,
-            EquationConstant.GREY_DIFFUSION_RATE,
-            EquationConstant.WHITE_DIFFUSION_RATE
-        )
-        # mean_diffusion = np.mean([
-        #     EquationConstant.CSF_DIFFUSION_RATE,
-        #     EquationConstant.GREY_DIFFUSION_RATE,
-        #     EquationConstant.WHITE_DIFFUSION_RATE
-        # ])
-        time_step = (EquationConstant.SPATIAL_RESOLUTION ** 2) / (2 * 3 * max_diffusion)
-        return step * time_step
+    def time_in_days(self, slider_position):
+        total_time = EquationConstant.TIME_STEP * slider_position
+        return total_time
 
     # Step 4: Interactive Visualization with Slice, Time Sliders, and Overlay Toggle
     def interactive_growth_visualization_2(self, mri_data, cur_scan):
@@ -249,23 +239,23 @@ class BiologicalModel:
         self.second_seg_overlay_coronal = self.second_segmentation_mask_resized_coronal.T
         self.second_seg_overlay_axial = self.second_segmentation_mask_resized_axial.T
 
-        # Apply tumor overlays
-        self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 0] = 1
-        self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 1] = 0
-        self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 2] = 0
-
-        # Apply second segmentation overlays in green
-        self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 0] = 0
-        self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 1] = 1
-        self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 2] = 0
-
-        self.scan_rgb_coronal[self.tumor_overlay_coronal, 0] = 1
-        self.scan_rgb_coronal[self.tumor_overlay_coronal, 1] = 0
-        self.scan_rgb_coronal[self.tumor_overlay_coronal, 2] = 0
-
-        self.scan_rgb_axial[self.tumor_overlay_axial, 0] = 1
-        self.scan_rgb_axial[self.tumor_overlay_axial, 1] = 0
-        self.scan_rgb_axial[self.tumor_overlay_axial, 2] = 0
+        # # Apply tumor overlays
+        # self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 0] = 1
+        # self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 1] = 0
+        # self.scan_rgb_sagittal[self.tumor_overlay_sagittal, 2] = 0
+        #
+        # # Apply second segmentation overlays in green
+        # self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 0] = 0
+        # self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 1] = 1
+        # self.scan_rgb_sagittal[self.second_seg_overlay_sagittal, 2] = 0
+        #
+        # self.scan_rgb_coronal[self.tumor_overlay_coronal, 0] = 1
+        # self.scan_rgb_coronal[self.tumor_overlay_coronal, 1] = 0
+        # self.scan_rgb_coronal[self.tumor_overlay_coronal, 2] = 0
+        #
+        # self.scan_rgb_axial[self.tumor_overlay_axial, 0] = 1
+        # self.scan_rgb_axial[self.tumor_overlay_axial, 1] = 0
+        # self.scan_rgb_axial[self.tumor_overlay_axial, 2] = 0
 
         self.scan_img_sagittal.set_data(self.scan_rgb_sagittal)
         self.scan_img_coronal.set_data(self.scan_rgb_coronal)
@@ -279,8 +269,11 @@ class BiologicalModel:
         self.ax_coronal.set_facecolor('black')
         self.ax_axial.set_facecolor('black')
         self.fig = fig
-        return fig
-        # return [self.ax_sagittal, self.ax_coronal, self.ax_axial]
+        # return fig
+        return  ({EquationConstant.SAG: self.scan_rgb_sagittal, EquationConstant.COR: self.scan_rgb_coronal, EquationConstant.AXI: self.scan_rgb_axial},
+                {EquationConstant.SAG: self.tumor_overlay_sagittal, EquationConstant.COR: self.tumor_overlay_coronal, EquationConstant.AXI: self.tumor_overlay_axial},
+                {EquationConstant.SAG: self.second_seg_overlay_sagittal, EquationConstant.COR: self.second_seg_overlay_coronal, EquationConstant.AXI: self.second_seg_overlay_axial})
+
 
     def create_brain_mask(self, mri_image):
         brain_mask = mri_image > 0
@@ -288,6 +281,7 @@ class BiologicalModel:
 
     # Update function for the sliders and toggle
     def update(self, slice_idx, time_step, overlay, cur_scan):
+        black_image = np.zeros((240, 240, 3), dtype=np.uint8)
 
         self.brain_mask_sagittal = self.create_brain_mask(self.mri_data['flair'][slice_idx, :, :])
         self.brain_mask_coronal = self.create_brain_mask(self.mri_data['flair'][:, slice_idx, :])
@@ -307,18 +301,27 @@ class BiologicalModel:
         self.scan_slice_axial = self.mri_data[cur_scan][:, :, slice_idx].T
         self.scan_rgb_sagittal = np.repeat(self.scan_slice_sagittal[:, :, np.newaxis], 3, axis=2)
         self.scan_rgb_coronal = np.repeat(self.scan_slice_coronal[:, :, np.newaxis], 3, axis=2)
-        self.scan_rgb_axial = np.repeat(self.scan_slice_axial[:, :, np.newaxis], 3, axis=2)
+        try:
+            self.scan_rgb_axial = np.repeat(self.scan_slice_axial[:, :, np.newaxis], 3, axis=2)
+        except:
+            self.scan_rgb_axial = black_image
         # Normalize scan_rgb to ensure values are within [0, 1]
         self.scan_rgb_sagittal = np.clip(self.scan_rgb_sagittal / np.max(self.scan_rgb_sagittal), 0, 1)
         self.scan_rgb_coronal = np.clip(self.scan_rgb_coronal / np.max(self.scan_rgb_coronal), 0, 1)
-        self.scan_rgb_axial = np.clip(self.scan_rgb_axial / np.max(self.scan_rgb_axial), 0, 1)
+        try:
+            self.scan_rgb_axial = np.clip(self.scan_rgb_axial / np.max(self.scan_rgb_axial), 0, 1)
+        except:
+            self.scan_rgb_axial = black_image
         # Resize the initial mask to match the new slice and simulate growth
         self.tumor_mask_resized_sagittal = self.resize_mask_to_slice(self.mri_data['glistrboost'][slice_idx, :, :] > 0,
                                                                          self.mri_data[cur_scan].shape[1:])
         self.tumor_mask_resized_coronal = self.resize_mask_to_slice(self.mri_data['glistrboost'][:, slice_idx, :] > 0,
                                                                         self.mri_data[cur_scan].shape[1:])
-        self.tumor_mask_resized_axial = self.resize_mask_to_slice(self.mri_data['glistrboost'][:, :, slice_idx] > 0,
+        try:
+            self.tumor_mask_resized_axial = self.resize_mask_to_slice(self.mri_data['glistrboost'][:, :, slice_idx] > 0,
                                                                       self.mri_data[cur_scan].shape[:2])
+        except:
+            self.tumor_mask_resized_axia = black_image
         # Prepare new second segmentation masks
         self.second_segmentation_mask_resized_sagittal = self.resize_mask_to_slice(
             self.mri_data['seg2'][slice_idx, :, :] > 0,
@@ -328,76 +331,98 @@ class BiologicalModel:
             self.mri_data['seg2'][:, slice_idx, :] > 0,
             self.mri_data[cur_scan].shape[1:]
         )
-        self.second_segmentation_mask_resized_axial = self.resize_mask_to_slice(
+        try:
+            self.second_segmentation_mask_resized_axial = self.resize_mask_to_slice(
             self.mri_data['seg2'][:, :, slice_idx] > 0,
             self.mri_data[cur_scan].shape[:2]
         )
+        except:
+            self.second_segmentation_mask_resized_axia = black_image
+
         try:
             # Extract the diffusion map slice dynamically
             self.diffusion_map_sagittal = self.diffusion_map[slice_idx, :, :]  # sagittal
-            self.diffusion_map_coronal = self.diffusion_map[:, slice_idx, :]  # coronal
-            self.diffusion_map_axial = self.diffusion_map[:, :, slice_idx]  # axial
-
             self.grown_tumor_mask_sagittal = self.simulate_growth(self.tumor_mask_resized_sagittal,
                                                                   diffusion_rate=self.diffusion_map_sagittal,
                                                                   reaction_rate=self.reaction_rate,
                                                                   time_steps=time_step,
                                                                   brain_mask=self.brain_mask_sagittal)
+        except:
+            print("diffusion_map_sagittal fail")
+        try:
+            self.diffusion_map_coronal = self.diffusion_map[:, slice_idx, :]  # coronal
             self.grown_tumor_mask_coronal = self.simulate_growth(self.tumor_mask_resized_coronal,
                                                                  diffusion_rate=self.diffusion_map_coronal,
                                                                  reaction_rate=self.reaction_rate, time_steps=time_step,
                                                                  brain_mask=self.brain_mask_coronal)
+        except:
+            print("diffusion_map_coronal fail")
+        try:
+            self.diffusion_map_axial = self.diffusion_map[:, :, slice_idx]  # axial:
             self.grown_tumor_mask_axial = self.simulate_growth(self.tumor_mask_resized_axial,
                                                                diffusion_rate=self.diffusion_map_axial,
                                                                reaction_rate=self.reaction_rate, time_steps=time_step,
                                                                brain_mask=self.brain_mask_axial)
         except:
-            self.grown_tumor_mask_sagittal = self.simulate_growth(self.tumor_mask_resized_sagittal,
-                                                                  diffusion_rate=self.diffusion_rate,
-                                                                  reaction_rate=self.reaction_rate,
-                                                                  time_steps=time_step,
-                                                                  brain_mask=self.brain_mask_sagittal)
-            self.grown_tumor_mask_coronal = self.simulate_growth(self.tumor_mask_resized_coronal,
-                                                                 diffusion_rate=self.diffusion_rate,
-                                                                 reaction_rate=self.reaction_rate, time_steps=time_step,
-                                                                 brain_mask=self.brain_mask_coronal)
-            self.grown_tumor_mask_axial = self.simulate_growth(self.tumor_mask_resized_axial,
-                                                               diffusion_rate=self.diffusion_rate,
-                                                               reaction_rate=self.reaction_rate, time_steps=time_step,
-                                                               brain_mask=self.brain_mask_axial)
-        # Apply tumor overlays
-        if overlay:
-            self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 0] = 1
-            self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 1] = 0
-            self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 2] = 0
+            print("diffusion_map_axial out of index")
+            self.grown_tumor_mask_axia = black_image
 
-            self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 0] = 1
-            self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 1] = 0
-            self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 2] = 0
+        # except:
+        #     self.grown_tumor_mask_sagittal = self.simulate_growth(self.tumor_mask_resized_sagittal,
+        #                                                           diffusion_rate=self.diffusion_rate,
+        #                                                           reaction_rate=self.reaction_rate,
+        #                                                           time_steps=time_step,
+        #                                                           brain_mask=self.brain_mask_sagittal)
+        #     self.grown_tumor_mask_coronal = self.simulate_growth(self.tumor_mask_resized_coronal,
+        #                                                          diffusion_rate=self.diffusion_rate,
+        #                                                          reaction_rate=self.reaction_rate, time_steps=time_step,
+        #                                                          brain_mask=self.brain_mask_coronal)
+        #     self.grown_tumor_mask_axial = self.simulate_growth(self.tumor_mask_resized_axial,
+        #                                                        diffusion_rate=self.diffusion_rate,
+        #                                                        reaction_rate=self.reaction_rate, time_steps=time_step,
+        #                                                        brain_mask=self.brain_mask_axial)
 
-            self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 0] = 1
-            self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 1] = 0
-            self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 2] = 0
+        # # Apply tumor overlays
+        # if overlay:
+        #
+        #     self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 0] = 1
+        #     self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 1] = 0
+        #     self.scan_rgb_sagittal[self.grown_tumor_mask_sagittal.T, 2] = 0
+        #
+        #     self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 0] = 1
+        #     self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 1] = 0
+        #     self.scan_rgb_coronal[self.grown_tumor_mask_coronal.T, 2] = 0
+        #
+        #     self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 0] = 1
+        #     self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 1] = 0
+        #     self.scan_rgb_axial[self.grown_tumor_mask_axial.T, 2] = 0
+        #
+        #     # Apply second segmentation overlays in green
+        #     self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 0] = 0
+        #     self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 1] = 1
+        #     self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 2] = 0
+        #
+        #     self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 0] = 0
+        #     self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 1] = 1
+        #     self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 2] = 0
+        #
+        #     self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 0] = 0
+        #     self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 1] = 1
+        #     self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 2] = 0
 
-            # Apply second segmentation overlays in green
-            self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 0] = 0
-            self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 1] = 1
-            self.scan_rgb_sagittal[self.second_segmentation_mask_resized_sagittal.T, 2] = 0
 
-            self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 0] = 0
-            self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 1] = 1
-            self.scan_rgb_coronal[self.second_segmentation_mask_resized_coronal.T, 2] = 0
-
-            self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 0] = 0
-            self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 1] = 1
-            self.scan_rgb_axial[self.second_segmentation_mask_resized_axial.T, 2] = 0
 
         # Update the images with the new slice and tumor mask
         self.scan_img_sagittal.set_data(self.scan_rgb_sagittal)
         self.scan_img_coronal.set_data(self.scan_rgb_coronal)
         self.scan_img_axial.set_data(self.scan_rgb_axial)
 
-        self.fig.canvas.draw_idle()
+        # self.fig.canvas.draw_idle()
+
+        # New added
+        return ({EquationConstant.SAG: self.scan_rgb_sagittal, EquationConstant.COR: self.scan_rgb_coronal, EquationConstant.AXI: self.scan_rgb_axial},
+                {EquationConstant.SAG: self.grown_tumor_mask_sagittal.T, EquationConstant.COR: self.grown_tumor_mask_coronal.T, EquationConstant.AXI: self.grown_tumor_mask_axial.T},
+                {EquationConstant.SAG: self.second_segmentation_mask_resized_sagittal.T, EquationConstant.COR: self.second_segmentation_mask_resized_coronal.T, EquationConstant.AXI: self.second_segmentation_mask_resized_axial.T})
 
     def get_max_slice_value(self, mri_data, current_scan):
         mri_shape = mri_data[current_scan].shape
@@ -457,10 +482,13 @@ class BiologicalModel:
 
         self.diffusion_map = np.where( map> 0, map, EquationConstant.DIFFUSION_RATE)
 
-        testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
+        # testFig = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
+        pred, pred_mask, real_mask = self.interactive_growth_visualization_2(self.mri_data, cur_scan)
         cur_slice_index = self.sagittal_slice_idx
         print("finish start equation")
-        return testFig, cur_slice_index, max_slices
+        # return testFig, cur_slice_index, max_slices
+
+        return pred, pred_mask, real_mask, cur_slice_index, max_slices
 
     def update_file_paths(self, path_key, path_value):
         self.file_paths[path_key] = path_value
@@ -470,9 +498,9 @@ class BiologicalModel:
         reference_img = nib.load(reference_nii_path)
         original_affine = reference_img.affine # Get the original affine matrix
         scale_factors = np.array(tumor_mask.shape) / np.array(reference_img.shape[:3]) # Calculate the scaling factors
-        
+
         new_affine = original_affine.copy() # Create a new affine matrix with adjusted scaling
-        new_affine[:3, :3] *= scale_factors[:, np.newaxis]  
+        new_affine[:3, :3] *= scale_factors[:, np.newaxis]
         # Create and save the NIfTI image with the new affine matrix
         tumor_img = nib.Nifti1Image(tumor_mask.astype(np.uint8), new_affine)
         nib.save(tumor_img, output_path)
@@ -506,7 +534,7 @@ class BiologicalModel:
         first_segmentation_name = os.path.splitext(first_segmentation_name)[0]
         current_date = datetime.now().strftime("%Y%m%d")
         output_filename = f"{first_segmentation_name}_grown_{current_date}.nii"
-        
+
         # Debugging: Print the shape of the full 3D mask
         print("\nDebugging Full 3D Tumor Mask Shape:")
         print("Full tumor mask shape:", full_tumor_mask.shape)
