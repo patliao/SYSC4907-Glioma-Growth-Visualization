@@ -52,7 +52,6 @@ class MainWindowController(QThread):
         self.equation_pred = self.reformat_data(eq_pred, False)
         self.equation_mask = self.reformat_data(eq_mask, True)
         self.real_mask = self.reformat_data(real_mask, True)
-        # self.view.init_sliders(cur_slice_index, max_slices)
         self.initSliders.emit(cur_slice_index, max_slices)
         self.update_image_display(show_eq, show_real, show_ai, mixed, is_overlay)
 
@@ -124,7 +123,6 @@ class MainWindowController(QThread):
             cor[cor_ai_mask] = [0, 0, 255]
             axi_ai_mask = self.ai_predict_mask.get(EquationConstant.AXI) == 1
             axi[axi_ai_mask] = [0, 0, 255]
-            # axi[axi_ai_mask] = [176, 242, 70]
         if mixed and ((show_eq and overlay) or show_real or show_ai):
             if (show_eq and overlay) and show_real and show_ai:
                 sag[sag_eq_mask & sag_real_mask & sag_ai_mask] = [255, 255, 255]
@@ -136,7 +134,6 @@ class MainWindowController(QThread):
                 axi[axi_eq_mask & axi_real_mask] = [255, 255, 0]
             elif (show_eq and overlay) and show_ai:
                 color = [255,204,255]
-                # color = [255, 0, 255]
                 axi[axi_eq_mask & axi_ai_mask] = color
                 sag[sag_eq_mask & sag_ai_mask] = color
                 cor[cor_eq_mask & cor_ai_mask] = color
@@ -171,7 +168,6 @@ class MainWindowController(QThread):
         self.update_image_display(show_eq, show_real, show_ai, mixed, is_overlay)
 
         time_day = int(self.equation_model.time_in_days(time_i))
-        # self.view.update_slider_value_labels(time_day)
         self.updateTime.emit(time_day)
 
 

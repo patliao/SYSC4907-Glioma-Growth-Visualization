@@ -466,7 +466,6 @@ class BiologicalModel:
 
         process.start()
         print("process start")
-        # process.join(timeout=180)
         process.join()
 
         print("finish diffusion map")

@@ -39,7 +39,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
         self.disable_by_start(False)
         self.time_slider.setMaximum(EquationConstant.NUM_STEPS)
-        # self.set_input_range_label()
 
         # Set user input to default value
         self.set_default_input()
@@ -216,9 +215,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
                                              self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
                                              self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
             self.controller.start()
-            # self.controller.start_prediction(reaction, csf_diff, grey_diff, white_diff, self.get_cur_scan(),
-            #                                  self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
-            #                                  self.ai_checkBox.isChecked(), self.mix_checkBox.isChecked(), self.toggle_checkbox.isChecked())
 
     def update_image_display(self):
         self.controller.update_image_display(self.equation_checkBox.isChecked(), self.real_checkBox.isChecked(),
@@ -253,7 +249,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
 
     def reset_equation(self):
         self.disable_by_start(False)
-        # self.set_input_range_label()
         self.set_default_input()
 
     def save_mask(self):
@@ -264,10 +259,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.grey_diffusion_rate_input.setText(str(EquationConstant.GREY_DIFFUSION_RATE))
         self.white_diffusion_input.setText(str(EquationConstant.WHITE_DIFFUSION_RATE))
         self.reaction_rate_input.setText(str(EquationConstant.REACTION_RATE))
-
-    # def set_input_range_label(self):
-    #     self.equation_running_info_label.setText(f"Diffusion Rate Range: [{EquationConstant.MIN_DIFFUSION},{EquationConstant.MAX_DIFFUSION}], "
-    #                                              f"Reaction Rate Range: [{EquationConstant.MIN_REACTION}，{EquationConstant.MAX_REACTION}]")
 
     def init_sliders(self, cur_slice, max_slice):
         self.slice_slider.setSliderPosition(cur_slice)
@@ -281,7 +272,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         self.process_info_label.hide()
 
     def update_plt(self):
-        # self.process_info_label.show()
         QApplication.processEvents()
         scan = self.get_cur_scan()
         slice_i = self.slice_slider.value()
@@ -304,7 +294,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         else:
             scan = 'flair'
         return scan
-
 
     def disable_by_start(self, has_start):
         self.start_button.setDisabled(has_start)
@@ -360,7 +349,6 @@ class MainWindowView(QtWidgets.QMainWindow, Ui_mainWindow):
         try:
             current_file_path = os.path.dirname(__file__)
             testing_files_path = os.path.join(current_file_path, "100026")
-            # testing_files_path = os.path.join(current_file_path, "100001")
             for filename in os.listdir(testing_files_path):
                 file_path = os.path.join(testing_files_path, filename)
                 if filename.__contains__("time1_flair.nii"):
