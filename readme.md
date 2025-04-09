@@ -30,9 +30,16 @@ The CNN is optimized for medical imaging through the following adaptations:
 3. Open the repository inside Python IDE
 4. Navigate to the project directory containing the file in a terminal and run pip install -r requirements.txt
 5. Run app_main.py
-## Results
 
 ## Conclusions
+### Reaction-diffusion Model
+The best-performing parameter combination across all tests was Dw=0.088, Dg=0.0176. 91% of tumors modelled achieved a DSC of 0.6 or higher. 46% of tumors reached a DSC of 0.8 or higher.
+Overall, we observe that models using relatively low diffusion rates (i.e., all combinations with Dw ≤ 0.14) achieved higher mean DSC values (approximately 0.74–0.76) and exhibited narrower IQRs, indicating consistent performance across the central 50% of patients.
+These findings suggest that with careful selection of biologically plausible diffusion parameters, the model can produce consistent and generally reliable tumor growth predictions.
+
+### ML
+The 3D U-Net architecture demonstrated significant improvements over the initial ResNet-50 approach, achieving a DSC of 0.82 and sensitivity of 0.84 on the validation dataset. 
+When analyzed with the reaction-diffusion equations, a DSC mean of 0.3252 was achieved.
 
 ## Dataset
 This project could not be possible without the [University of California San Francisco Adult Longitudinal Post-Treatment Diffuse Glioma (UCSF-ALPTDG) MRI Dataset](https://imagingdatasets.ucsf.edu/dataset/2).
