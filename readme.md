@@ -50,4 +50,3 @@ The breakdown of tumor stages for these 106 patients is as follows:
 - Grade 3: 21 patients 
 - Grade 4: 70 patients 
 
-## References
