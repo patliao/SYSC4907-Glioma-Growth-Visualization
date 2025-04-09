@@ -43,8 +43,8 @@ When analyzed with the reaction-diffusion equations, a DSC mean of 0.3252 was ac
 
 ## Dataset
 This project could not be possible without the [University of California San Francisco Adult Longitudinal Post-Treatment Diffuse Glioma (UCSF-ALPTDG) MRI Dataset](https://imagingdatasets.ucsf.edu/dataset/2).
-106 total patients were used for modelling and testing purposes, all with increasing tumors.
-The breakdown of tumor stages for these 106 patients is as follows:
+112 total patients were used for modelling and testing purposes, all with increasing tumors.
+The breakdown of tumor stages for 106 patients (not all were graded) is as follows:
 - Grade 1: 1 patients 
 - Grade 2: 14 patients 
 - Grade 3: 21 patients 
